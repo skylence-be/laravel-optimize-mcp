@@ -51,15 +51,17 @@ class OptimizeMcpServiceProvider extends ServiceProvider
             ->middleware(config('optimize-mcp.http.middleware', []))
             ->group(__DIR__.'/../routes/http.php');
 
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                InstallCommand::class,
-                McpCommand::class,
-                DatabaseSizeCommand::class,
-                MonitorDatabaseSizeCommand::class,
-                PruneDatabaseLogsCommand::class,
-            ]);
+        // Register commands (needed for both console and HTTP contexts)
+        // HTTP MCP tools use Artisan::call() which requires commands to be registered
+        $this->commands([
+            InstallCommand::class,
+            McpCommand::class,
+            DatabaseSizeCommand::class,
+            MonitorDatabaseSizeCommand::class,
+            PruneDatabaseLogsCommand::class,
+        ]);
 
+        if ($this->app->runningInConsole()) {
             // Load package migrations (only if monitoring is enabled)
             if (config('optimize-mcp.database_monitoring.enabled', false)) {
                 $this->loadMigrationsFrom(__DIR__.'/../database/migrations');

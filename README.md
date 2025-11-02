@@ -70,7 +70,19 @@ OPTIMIZE_MCP_DB_CRITICAL_THRESHOLD=90
 php artisan migrate
 ```
 
-3. Schedule the monitoring command in `app/Console/Kernel.php`:
+3. Schedule the monitoring command:
+
+**Laravel 11+ / 12** (in `bootstrap/app.php`):
+```php
+->withSchedule(function (Schedule $schedule): void {
+    $schedule->command('optimize-mcp:monitor-database')
+        ->daily()
+        ->onOneServer()
+        ->when(fn () => config('app.schedule_enabled', true));
+})
+```
+
+**Laravel 10 and earlier** (in `app/Console/Kernel.php`):
 ```php
 protected function schedule(Schedule $schedule)
 {
@@ -78,6 +90,20 @@ protected function schedule(Schedule $schedule)
     $schedule->command('optimize-mcp:monitor-database')->daily();
 }
 ```
+
+**Make schedules configurable** (recommended):
+
+Add to `config/app.php`:
+```php
+'schedule_enabled' => (bool) env('APP_SCHEDULE_ENABLED', true),
+```
+
+Add to `.env`:
+```env
+APP_SCHEDULE_ENABLED=true  # Set to false to disable all scheduled tasks
+```
+
+This allows you to easily enable/disable schedules per environment (local, staging, production).
 
 ### Available Commands
 
