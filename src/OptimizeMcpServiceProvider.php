@@ -25,6 +25,9 @@ class OptimizeMcpServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Load MCP routes
+        $this->loadRoutesFrom(__DIR__.'/../routes/ai.php');
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/optimize-mcp.php' => config_path('optimize-mcp.php'),

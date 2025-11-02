@@ -20,19 +20,7 @@ This will publish the configuration file to `config/optimize-mcp.php`.
 
 ## Configuration
 
-After installation, you need to register the MCP server in your `routes/ai.php` file:
-
-```php
-use Laravel\Mcp\Facades\Mcp;
-use Skylence\OptimizeMcp\Mcp\Servers\OptimizeServer;
-
-// For local development
-Mcp::local('optimize', OptimizeServer::class);
-
-// Or for web-based access
-Mcp::web('/mcp/optimize', OptimizeServer::class)
-    ->middleware(['auth:sanctum']);
-```
+The package automatically registers its MCP server routes. No additional configuration is required!
 
 ## Available Tools
 
@@ -59,6 +47,58 @@ A simple ping tool to test the MCP server connection.
   }
 }
 ```
+
+### EchoMessage
+
+Echo back any message you send - useful for testing MCP connectivity.
+
+**Parameters:**
+- `message` (required): The message to echo back
+
+**Example Response:**
+```
+Echo: Your message here
+```
+
+### PackageAdvisor
+
+Analyze your Laravel project and get comprehensive package recommendations to improve your development workflow.
+
+**Parameters:**
+- `add_to_composer` (optional, default: false): Automatically add recommended packages to composer.json
+- `add_to_package_json` (optional, default: false): Automatically add recommended npm/pnpm packages to package.json
+
+**Example Response:**
+```json
+{
+  "total_packages": 15,
+  "recommendations": {
+    "nunomaduro/larastan": "Static analysis tool for Laravel",
+    "barryvdh/laravel-ide-helper": "Generate IDE helper files",
+    "laravel/scout": "Full-text search for Eloquent models"
+  },
+  "added_to_composer": {
+    "require": ["nunomaduro/larastan", "laravel/scout"],
+    "require-dev": ["barryvdh/laravel-ide-helper"]
+  },
+  "added_to_package_json": {
+    "dependencies": ["@tailwindcss/forms", "alpinejs", "vue"],
+    "devDependencies": ["autoprefixer", "prettier", "typescript"]
+  },
+  "package_manager": "npm"
+}
+```
+
+**Features:**
+- Recommends all useful packages from the get-go (no stage detection needed)
+- Covers essential, testing, auth, database, monitoring, and code quality packages
+- Recommends both PHP (Composer) and JavaScript (npm/pnpm) packages
+- Can automatically modify composer.json and package.json files
+- Detects whether you're using npm or pnpm
+- Provides helpful tips about using pnpm for local development
+- Includes warnings about Laravel Forge compatibility with pnpm
+
+For more details on all available tools, see [TOOLS.md](TOOLS.md).
 
 ## Testing the Server
 
