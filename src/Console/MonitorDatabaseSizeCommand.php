@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
 use Skylence\OptimizeMcp\Models\DatabaseSizeLog;
+use Skylence\OptimizeMcp\Models\DatabaseTableSizeLog;
 use Skylence\OptimizeMcp\Notifications\DatabaseSizeWarning;
 use Symfony\Component\Console\Attribute\AsCommand;
 
@@ -49,6 +50,9 @@ class MonitorDatabaseSizeCommand extends Command
 
             $this->info("Database size logged: {$log->total_size_mb} MB");
 
+            // Log individual table sizes
+            $this->logTableSizes($log, $data['tables'] ?? []);
+
             // Check thresholds and send notifications
             $this->checkThresholdsAndNotify($log);
 
@@ -84,6 +88,34 @@ class MonitorDatabaseSizeCommand extends Command
             'total_rows' => array_sum(array_column($data['tables'] ?? [], 'rows')),
             'largest_tables' => $largestTables,
         ]);
+    }
+
+    /**
+     * Log individual table sizes.
+     */
+    protected function logTableSizes(DatabaseSizeLog $log, array $tables): void
+    {
+        $count = 0;
+
+        foreach ($tables as $table) {
+            $tableLog = DatabaseTableSizeLog::create([
+                'database_size_log_id' => $log->id,
+                'table_name' => $table['name'],
+                'size_bytes' => $table['size_bytes'] ?? 0,
+                'size_mb' => $table['size_mb'] ?? 0,
+                'data_size_mb' => $table['data_size_mb'] ?? null,
+                'index_size_mb' => $table['index_size_mb'] ?? null,
+                'row_count' => $table['rows'] ?? 0,
+            ]);
+
+            // Calculate growth for this table
+            $tableLog->calculateGrowth();
+            $tableLog->save();
+
+            $count++;
+        }
+
+        $this->info("Logged {$count} table size(s)");
     }
 
     /**

@@ -6,6 +6,7 @@ namespace Skylence\OptimizeMcp\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DatabaseSizeLog extends Model
 {
@@ -60,6 +61,14 @@ class DatabaseSizeLog extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Get the table size logs for this database log.
+     */
+    public function tableSizeLogs(): HasMany
+    {
+        return $this->hasMany(DatabaseTableSizeLog::class);
+    }
 
     /**
      * Get the previous log entry for the same database.
