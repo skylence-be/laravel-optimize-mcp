@@ -25,8 +25,6 @@ return [
     */
 
     'tools' => [
-        'ping' => true,
-        'echo-message' => true,
         'configuration-analyzer' => true,
         'project-structure-analyzer' => false, // Disabled for HTTP
         'package-advisor' => false, // Disabled for HTTP
