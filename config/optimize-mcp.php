@@ -42,7 +42,9 @@ return [
     'http' => [
         'enabled' => true,
         'prefix' => 'optimize-mcp',
-        'middleware' => [],
+        'middleware' => [
+            \Skylence\OptimizeMcp\Http\Middleware\AuthenticateMcp::class,
+        ],
     ],
 
     /*
@@ -57,5 +59,22 @@ return [
     'logging' => [
         'enabled' => false,
         'channel' => 'stack',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication & Authorization
+    |--------------------------------------------------------------------------
+    |
+    | Configure access control for the HTTP MCP endpoints. When enabled,
+    | requests must include a valid bearer token or X-MCP-Token header.
+    |
+    | Generate a secure token: php artisan tinker --execute="echo bin2hex(random_bytes(32))"
+    |
+    */
+
+    'auth' => [
+        'enabled' => env('OPTIMIZE_MCP_AUTH_ENABLED', true),
+        'token' => env('OPTIMIZE_MCP_API_TOKEN'),
     ],
 ];
