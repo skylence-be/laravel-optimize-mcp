@@ -208,11 +208,17 @@ class InstallCommand extends Command
 
         $this->newLine();
         $this->components->info('Showing editor selection prompt...');
+        $this->components->info('Options: '.json_encode($options->toArray()));
+        $this->components->info('Detected defaults: '.json_encode($detectedDefaults));
+        $this->components->info('Config defaults: '.json_encode($defaults));
+
+        $defaultsToUse = $defaults === [] ? $detectedDefaults : $defaults;
+        $this->components->info('Using defaults: '.json_encode($defaultsToUse));
 
         $selectedCodeEnvironments = collect(multiselect(
             label: sprintf('Which code editors do you use to work on %s?', $this->projectName),
             options: $options->toArray(),
-            default: $defaults === [] ? $detectedDefaults : $defaults,
+            default: $defaultsToUse,
             scroll: $options->count(),
             required: true,
             hint: $defaults === [] || $detectedDefaults === [] ? '' : sprintf('Auto-detected %s for you',
