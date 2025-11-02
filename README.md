@@ -224,14 +224,6 @@ For local servers, add the following to your MCP client configuration:
 }
 ```
 
-### Web Server Configuration
-
-For web servers, configure your MCP client to connect to the HTTP endpoint:
-
-```
-http://your-app.test/mcp/optimize
-```
-
 ## Creating Custom Tools
 
 You can create additional tools by extending the `Laravel\Mcp\Server\Tool` class:
