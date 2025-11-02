@@ -77,4 +77,18 @@ return [
         'enabled' => env('OPTIMIZE_MCP_AUTH_ENABLED', true),
         'token' => env('OPTIMIZE_MCP_API_TOKEN'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Installation Preferences
+    |--------------------------------------------------------------------------
+    |
+    | Store user preferences from the installation process. These are used
+    | to remember which code editors you selected during installation.
+    |
+    */
+
+    'installation' => [
+        'editors' => [],
+    ],
 ];
