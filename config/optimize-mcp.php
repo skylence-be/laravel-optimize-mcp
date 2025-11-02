@@ -27,4 +27,33 @@ return [
     'tools' => [
         'ping' => true,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | HTTP MCP API Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the HTTP MCP API endpoints.
+    |
+    */
+
+    'http' => [
+        'enabled' => true,
+        'prefix' => 'optimize-mcp',
+        'middleware' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Logging Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for MCP server logging.
+    |
+    */
+
+    'logging' => [
+        'enabled' => false,
+        'channel' => 'stack',
+    ],
 ];
