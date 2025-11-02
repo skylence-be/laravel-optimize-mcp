@@ -58,7 +58,7 @@ final class TestingSetupAnalyzer extends AbstractAnalyzer
                 'category' => 'tooling',
                 'type' => 'productivity',
                 'message' => 'Install nunomaduro/essentials for instant config generation',
-                'benefit' => 'Run "php artisan essentials:pint" and "php artisan essentials:rector" to generate optimized configs',
+                'benefit' => 'Run "php artisan essentials:pint --force" and "php artisan essentials:rector --force" to generate optimized configs',
             ];
         } else {
             $goodPractices[] = [
