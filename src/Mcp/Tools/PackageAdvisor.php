@@ -324,12 +324,12 @@ final class PackageAdvisor extends Tool
         $composerCmd = $env['has_composer_bat'] ? 'composer.bat' : 'composer';
 
         if (! empty($prodPackages)) {
-            $command = $composerCmd.' require '.implode(' ', $prodPackages);
+            $command = $composerCmd.' require --no-interaction '.implode(' ', $prodPackages);
             exec($command, $output, $returnCode);
         }
 
         if (! empty($devOnlyPackages)) {
-            $command = $composerCmd.' require --dev '.implode(' ', $devOnlyPackages);
+            $command = $composerCmd.' require --dev --no-interaction '.implode(' ', $devOnlyPackages);
             exec($command, $output, $returnCode);
         }
 
@@ -405,23 +405,23 @@ final class PackageAdvisor extends Tool
         // Run installation commands
         if ($packageManager === 'pnpm') {
             if (! empty($prodPackages)) {
-                $command = 'pnpm add '.implode(' ', $prodPackages);
+                $command = 'pnpm add --force '.implode(' ', $prodPackages);
                 exec($command, $output, $returnCode);
             }
 
             if (! empty($devOnlyPackages)) {
-                $command = 'pnpm add -D '.implode(' ', $devOnlyPackages);
+                $command = 'pnpm add -D --force '.implode(' ', $devOnlyPackages);
                 exec($command, $output, $returnCode);
             }
         } else {
             // npm
             if (! empty($prodPackages)) {
-                $command = 'npm install '.implode(' ', $prodPackages);
+                $command = 'npm install --yes '.implode(' ', $prodPackages);
                 exec($command, $output, $returnCode);
             }
 
             if (! empty($devOnlyPackages)) {
-                $command = 'npm install --save-dev '.implode(' ', $devOnlyPackages);
+                $command = 'npm install --save-dev --yes '.implode(' ', $devOnlyPackages);
                 exec($command, $output, $returnCode);
             }
         }
