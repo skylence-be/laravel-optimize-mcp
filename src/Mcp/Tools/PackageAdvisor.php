@@ -22,15 +22,36 @@ final class PackageAdvisor extends Tool
      */
     public function schema(JsonSchema $schema): array
     {
+        // Default to true for stdio (local), false for HTTP (remote)
+        $defaultAddPackages = ! $this->isHttpContext();
+
         return [
             'add_to_composer' => $schema->boolean()
                 ->description('Whether to add recommended packages to composer.json (requires manual composer install after)')
-                ->default(false),
+                ->default($defaultAddPackages),
 
             'add_to_package_json' => $schema->boolean()
                 ->description('Whether to add recommended npm/pnpm packages to package.json (requires manual npm/pnpm install after)')
-                ->default(false),
+                ->default($defaultAddPackages),
         ];
+    }
+
+    /**
+     * Check if running in HTTP context (vs stdio).
+     */
+    protected function isHttpContext(): bool
+    {
+        if (! app()->bound('request')) {
+            return false;
+        }
+
+        try {
+            $request = app('request');
+
+            return $request instanceof \Illuminate\Http\Request && ! app()->runningInConsole();
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**

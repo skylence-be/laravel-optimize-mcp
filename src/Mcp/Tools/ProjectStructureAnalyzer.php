@@ -28,11 +28,32 @@ final class ProjectStructureAnalyzer extends Tool
      */
     public function schema(JsonSchema $schema): array
     {
+        // Default to true for stdio (local), false for HTTP (remote)
+        $defaultIncludeActions = ! $this->isHttpContext();
+
         return [
             'include_actions' => $schema->boolean()
                 ->description('Include actionable recommendations with stub file contents and installation commands')
-                ->default(false),
+                ->default($defaultIncludeActions),
         ];
+    }
+
+    /**
+     * Check if running in HTTP context (vs stdio).
+     */
+    protected function isHttpContext(): bool
+    {
+        if (! app()->bound('request')) {
+            return false;
+        }
+
+        try {
+            $request = app('request');
+
+            return $request instanceof \Illuminate\Http\Request && ! app()->runningInConsole();
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**
