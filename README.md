@@ -60,6 +60,81 @@ Echo back any message you send - useful for testing MCP connectivity.
 Echo: Your message here
 ```
 
+### ProjectStructureAnalyzer
+
+Analyze your project structure including composer scripts, GitHub workflows, testing setup, Git hooks, and deployment process.
+
+**Parameters:**
+- None required
+
+**Example Response:**
+```json
+{
+  "severity_counts": {
+    "critical": 0,
+    "warning": 0
+  },
+  "issues": [],
+  "good_practices": [
+    {
+      "category": "composer",
+      "message": "Development script configured for concurrent processes",
+      "details": "Good practice: single command to run server, queue, and vite"
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "ci-cd",
+      "message": "No GitHub Actions workflows found",
+      "benefit": "Add CI/CD workflows for automated testing and quality checks"
+    }
+  ]
+}
+```
+
+**Features:**
+- Analyzes composer.json scripts (test, lint, quality checks)
+- Checks for GitHub Actions workflows
+- Validates package.json frontend setup
+- Analyzes testing setup (Pest, PHPUnit, browser testing)
+- Checks for Git hooks (GrumPHP, CaptainHook)
+- Validates deployment process (Deployer, Laravel Forge)
+
+### ConfigurationAnalyzer
+
+Analyze your Laravel configuration for performance, security, and optimization opportunities.
+
+**Parameters:**
+- `environment` (optional): Target environment (production/staging/local) - defaults to APP_ENV
+
+**Example Response:**
+```json
+{
+  "environment": "production",
+  "severity_counts": {
+    "critical": 0,
+    "warning": 2,
+    "info": 0
+  },
+  "issues": [],
+  "recommendations": [
+    {
+      "config": "cache.default",
+      "message": "Consider using Redis for better performance",
+      "benefit": "Faster cache operations"
+    }
+  ]
+}
+```
+
+**Features:**
+- Analyzes app configuration (debug mode, environment, timezone)
+- Checks cache, session, queue, and database drivers for production readiness
+- Identifies Telescope configuration issues
+- Recommends performance optimizations (OPcache, route/config caching)
+- Security checks (debug mode in production, driver configurations)
+- Environment-specific recommendations
+
 ### PackageAdvisor
 
 Analyze your Laravel project and get comprehensive package recommendations to improve your development workflow.

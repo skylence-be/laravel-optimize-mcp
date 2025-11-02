@@ -72,7 +72,140 @@ Echo: Testing the echo tool!
 
 ---
 
-### 3. PackageAdvisor Tool
+### 3. ProjectStructureAnalyzer Tool
+
+**Name:** `project-structure-analyzer`
+
+**Description:** Analyze project structure including composer scripts, GitHub workflows, testing setup, Git hooks, and deployment process.
+
+**Parameters:**
+- None required
+
+**Example Request:**
+```json
+{
+  "name": "project-structure-analyzer",
+  "arguments": {}
+}
+```
+
+**Example Response:**
+```json
+{
+  "summary": "📋 Project Structure Analysis...",
+  "severity_counts": {
+    "critical": 0,
+    "warning": 1
+  },
+  "issues": [
+    {
+      "severity": "warning",
+      "file": ".github/workflows",
+      "message": "No CI/CD workflows configured"
+    }
+  ],
+  "good_practices": [
+    {
+      "category": "composer",
+      "message": "Development script configured for concurrent processes",
+      "details": "Good practice: single command to run server, queue, and vite"
+    }
+  ],
+  "recommendations": [
+    {
+      "category": "testing",
+      "message": "Add pestphp/pest-plugin-browser for E2E testing",
+      "benefit": "Enables browser testing with Playwright"
+    },
+    {
+      "category": "git-hooks",
+      "message": "Install GrumPHP or CaptainHook for pre-commit checks",
+      "benefit": "Prevents pushing broken code to CI/CD"
+    }
+  ]
+}
+```
+
+**Features:**
+- **Composer Scripts**: Analyzes composer.json for test, lint, quality check scripts
+- **GitHub Workflows**: Checks for CI/CD automation (.github/workflows)
+- **Frontend Setup**: Validates package.json scripts and dev dependencies
+- **Testing**: Checks for Pest, PHPUnit, browser testing setup
+- **Git Hooks**: Detects GrumPHP, CaptainHook, or custom git hooks
+- **Deployment**: Checks for Deployer, Laravel Forge, or other deployment tools
+- **Good Practices**: Identifies well-configured development workflows
+- **Recommendations**: Suggests missing tools and process improvements
+
+---
+
+### 4. ConfigurationAnalyzer Tool
+
+**Name:** `configuration-analyzer`
+
+**Description:** Analyze Laravel configuration for performance, security, and optimization opportunities.
+
+**Parameters:**
+- `environment` (string, optional) - Target environment: production, staging, or local (will use APP_ENV if not provided)
+
+**Example Request:**
+```json
+{
+  "name": "configuration-analyzer",
+  "arguments": {
+    "environment": "production"
+  }
+}
+```
+
+**Example Response:**
+```json
+{
+  "summary": "⚙️ Laravel Configuration Analysis...",
+  "environment": "production",
+  "severity_counts": {
+    "critical": 1,
+    "warning": 2,
+    "info": 0
+  },
+  "issues": [
+    {
+      "severity": "critical",
+      "category": "security",
+      "config": "app.debug",
+      "message": "Debug mode is enabled in production!",
+      "fix": "Set APP_DEBUG=false in .env"
+    }
+  ],
+  "recommendations": [
+    {
+      "config": "cache.default",
+      "message": "Consider using Redis for caching",
+      "benefit": "Better performance and scalability"
+    }
+  ],
+  "optimizations": [
+    {
+      "type": "opcache",
+      "status": "disabled",
+      "recommended_for": "critical",
+      "benefit": "Dramatically improves PHP performance"
+    }
+  ]
+}
+```
+
+**Features:**
+- Analyzes critical app settings (debug mode, environment, timezone)
+- Checks cache/session/queue drivers for production readiness
+- Identifies database configuration issues
+- Analyzes Telescope configuration and performance impact
+- Recommends performance optimizations (OPcache, route caching, config caching)
+- Environment-specific recommendations (production vs staging vs local)
+- Security checks (debug mode, sensitive data exposure)
+
+---
+
+### 5. PackageAdvisor Tool
 
 **Name:** `package-advisor`
 
