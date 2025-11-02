@@ -64,7 +64,9 @@ final class OptimizeServerHttp
         $configuredTools = config('optimize-mcp.tools', []);
         foreach ($configuredTools as $toolName => $enabled) {
             if (! $enabled) {
-                $toolClass = 'Skylence\\OptimizeMcp\\Mcp\\Tools\\'.ucfirst($toolName);
+                // Convert kebab-case to PascalCase
+                $className = str_replace(' ', '', ucwords(str_replace('-', ' ', $toolName)));
+                $toolClass = 'Skylence\\OptimizeMcp\\Mcp\\Tools\\'.$className;
                 $tools = array_filter($tools, fn ($tool) => $tool !== $toolClass);
             }
         }
