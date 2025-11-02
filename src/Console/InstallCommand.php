@@ -104,17 +104,28 @@ class InstallCommand extends Command
 
         $this->newLine();
         $this->components->twoColumnDetail(
+            '<fg=green>Available MCP Servers:</>',
+            ''
+        );
+
+        $this->components->bulletList([
+            'PHP stdio server (local): Use key "php-laravel-optimize" in Claude Desktop config',
+            'HTTP server: Use key "http-laravel-optimize" in .mcp.json or MCP client',
+        ]);
+
+        $this->newLine();
+        $this->components->twoColumnDetail(
             '<fg=green>Next steps:</>',
             ''
         );
 
         $this->components->bulletList([
-            'Configure your MCP server in routes/ai.php',
-            'Register the OptimizeServer in your application',
-            'Use the ping tool to test your setup',
+            'Configure HTTP endpoint: config/optimize-mcp.php',
+            'Enable/disable tools in the config file',
+            'Test with: php artisan optimize-mcp:install',
         ]);
 
         $this->newLine();
-        $this->components->info('For more information, visit: https://github.com/laravel/optimize-mcp');
+        $this->components->info('For more information, visit: https://github.com/skylence-be/laravel-optimize-mcp');
     }
 }
