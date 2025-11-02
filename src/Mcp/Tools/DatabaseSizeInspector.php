@@ -71,6 +71,9 @@ final class DatabaseSizeInspector extends Tool
                 'summary' => $summary,
                 'total_size_mb' => $data['total_size_mb'] ?? 0,
                 'total_size_gb' => $data['total_size_gb'] ?? 0,
+                'max_size_mb' => $data['max_size_mb'] ?? null,
+                'max_size_gb' => $data['max_size_gb'] ?? null,
+                'usage_percentage' => $data['usage_percentage'] ?? null,
                 'table_count' => count($data['tables'] ?? []),
                 'driver' => $data['driver'] ?? 'unknown',
             ]);
@@ -98,6 +101,27 @@ final class DatabaseSizeInspector extends Tool
         $lines[] = "💾 Total Size:";
         $lines[] = "  • {$data['total_size_mb']} MB ({$data['total_size_gb']} GB)";
         $lines[] = "  • {$data['total_size_bytes']} bytes";
+
+        // Max size and usage (if available)
+        if (isset($data['max_size_gb']) && $data['max_size_gb'] !== null) {
+            $lines[] = "";
+            $lines[] = "📈 Disk Usage:";
+            $lines[] = "  • Max Available: {$data['max_size_gb']} GB ({$data['max_size_mb']} MB)";
+            $lines[] = "  • Usage: {$data['usage_percentage']}%";
+
+            // Add visual indicator
+            $usage = $data['usage_percentage'];
+            if ($usage >= 90) {
+                $lines[] = "  • Status: 🚨 CRITICAL - Immediate action required";
+            } elseif ($usage >= 80) {
+                $lines[] = "  • Status: ⚠️ WARNING - Action recommended";
+            } elseif ($usage >= 70) {
+                $lines[] = "  • Status: 🟡 NOTICE - Monitor closely";
+            } else {
+                $lines[] = "  • Status: ✅ HEALTHY";
+            }
+        }
+
         $lines[] = "";
 
         // Tables

@@ -9,6 +9,8 @@ use Illuminate\Support\ServiceProvider;
 use Skylence\OptimizeMcp\Console\DatabaseSizeCommand;
 use Skylence\OptimizeMcp\Console\InstallCommand;
 use Skylence\OptimizeMcp\Console\McpCommand;
+use Skylence\OptimizeMcp\Console\MonitorDatabaseSizeCommand;
+use Skylence\OptimizeMcp\Console\PruneDatabaseLogsCommand;
 
 class OptimizeMcpServiceProvider extends ServiceProvider
 {
@@ -54,7 +56,19 @@ class OptimizeMcpServiceProvider extends ServiceProvider
                 InstallCommand::class,
                 McpCommand::class,
                 DatabaseSizeCommand::class,
+                MonitorDatabaseSizeCommand::class,
+                PruneDatabaseLogsCommand::class,
             ]);
+
+            // Load package migrations (only if monitoring is enabled)
+            if (config('optimize-mcp.database_monitoring.enabled', false)) {
+                $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+            }
+
+            // Publish config
+            $this->publishes([
+                __DIR__.'/../config/optimize-mcp.php' => config_path('optimize-mcp.php'),
+            ], 'optimize-mcp-config');
         }
     }
 }

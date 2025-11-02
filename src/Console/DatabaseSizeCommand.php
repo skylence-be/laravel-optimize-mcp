@@ -71,12 +71,19 @@ class DatabaseSizeCommand extends Command
             ORDER BY (data_length + index_length) DESC
         ", [$database]);
 
+        // Try to get max database size (disk space available)
+        $maxSize = $this->getMySqlMaxSize();
+
         return [
             'driver' => 'mysql',
             'database' => $database,
             'total_size_bytes' => (int) ($databaseSize->size_bytes ?? 0),
             'total_size_mb' => round($databaseSize->size_mb ?? 0, 2),
             'total_size_gb' => round(($databaseSize->size_mb ?? 0) / 1024, 2),
+            'max_size_bytes' => $maxSize['max_size_bytes'] ?? null,
+            'max_size_mb' => $maxSize['max_size_mb'] ?? null,
+            'max_size_gb' => $maxSize['max_size_gb'] ?? null,
+            'usage_percentage' => $maxSize['usage_percentage'] ?? null,
             'tables' => array_map(function ($table) {
                 return [
                     'name' => $table->table_name,
@@ -88,6 +95,39 @@ class DatabaseSizeCommand extends Command
                 ];
             }, $tables),
         ];
+    }
+
+    /**
+     * Get MySQL max size from disk space.
+     */
+    protected function getMySqlMaxSize(): array
+    {
+        try {
+            // Get data directory
+            $dataDir = DB::select("SELECT @@datadir as datadir")[0]->datadir ?? null;
+
+            if ($dataDir && is_dir($dataDir)) {
+                $diskFree = disk_free_space($dataDir);
+                $diskTotal = disk_total_space($dataDir);
+
+                if ($diskFree !== false && $diskTotal !== false) {
+                    $maxSizeBytes = (int) $diskTotal;
+                    $usedBytes = $diskTotal - $diskFree;
+                    $usagePercentage = round(($usedBytes / $diskTotal) * 100, 2);
+
+                    return [
+                        'max_size_bytes' => $maxSizeBytes,
+                        'max_size_mb' => round($maxSizeBytes / 1024 / 1024, 2),
+                        'max_size_gb' => round($maxSizeBytes / 1024 / 1024 / 1024, 2),
+                        'usage_percentage' => $usagePercentage,
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            // Silently fail and return empty array
+        }
+
+        return [];
     }
 
     /**
@@ -116,12 +156,19 @@ class DatabaseSizeCommand extends Command
             ORDER BY pg_total_relation_size(schemaname||'.'||relname) DESC
         ");
 
+        // Try to get max database size
+        $maxSize = $this->getPostgresMaxSize();
+
         return [
             'driver' => 'pgsql',
             'database' => $database,
             'total_size_bytes' => $sizeBytes,
             'total_size_mb' => round($sizeMb, 2),
             'total_size_gb' => round($sizeMb / 1024, 2),
+            'max_size_bytes' => $maxSize['max_size_bytes'] ?? null,
+            'max_size_mb' => $maxSize['max_size_mb'] ?? null,
+            'max_size_gb' => $maxSize['max_size_gb'] ?? null,
+            'usage_percentage' => $maxSize['usage_percentage'] ?? null,
             'tables' => array_map(function ($table) {
                 return [
                     'name' => $table->table_name,
@@ -131,6 +178,39 @@ class DatabaseSizeCommand extends Command
                 ];
             }, $tables),
         ];
+    }
+
+    /**
+     * Get PostgreSQL max size from disk space.
+     */
+    protected function getPostgresMaxSize(): array
+    {
+        try {
+            // Get data directory
+            $dataDir = DB::select("SHOW data_directory")[0]->data_directory ?? null;
+
+            if ($dataDir && is_dir($dataDir)) {
+                $diskFree = disk_free_space($dataDir);
+                $diskTotal = disk_total_space($dataDir);
+
+                if ($diskFree !== false && $diskTotal !== false) {
+                    $maxSizeBytes = (int) $diskTotal;
+                    $usedBytes = $diskTotal - $diskFree;
+                    $usagePercentage = round(($usedBytes / $diskTotal) * 100, 2);
+
+                    return [
+                        'max_size_bytes' => $maxSizeBytes,
+                        'max_size_mb' => round($maxSizeBytes / 1024 / 1024, 2),
+                        'max_size_gb' => round($maxSizeBytes / 1024 / 1024 / 1024, 2),
+                        'usage_percentage' => $usagePercentage,
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            // Silently fail and return empty array
+        }
+
+        return [];
     }
 
     /**
@@ -155,6 +235,9 @@ class DatabaseSizeCommand extends Command
             ORDER BY name
         ");
 
+        // Get max size from disk space
+        $maxSize = $this->getSqliteMaxSize($databasePath);
+
         return [
             'driver' => 'sqlite',
             'database' => basename($databasePath),
@@ -162,6 +245,10 @@ class DatabaseSizeCommand extends Command
             'total_size_bytes' => $sizeBytes,
             'total_size_mb' => round($sizeMb, 2),
             'total_size_gb' => round($sizeMb / 1024, 2),
+            'max_size_bytes' => $maxSize['max_size_bytes'] ?? null,
+            'max_size_mb' => $maxSize['max_size_mb'] ?? null,
+            'max_size_gb' => $maxSize['max_size_gb'] ?? null,
+            'usage_percentage' => $maxSize['usage_percentage'] ?? null,
             'tables' => array_map(function ($table) {
                 $count = DB::table($table->table_name)->count();
                 return [
@@ -170,6 +257,37 @@ class DatabaseSizeCommand extends Command
                 ];
             }, $tables),
         ];
+    }
+
+    /**
+     * Get SQLite max size from disk space.
+     */
+    protected function getSqliteMaxSize(string $databasePath): array
+    {
+        try {
+            if (file_exists($databasePath)) {
+                $directory = dirname($databasePath);
+                $diskFree = disk_free_space($directory);
+                $diskTotal = disk_total_space($directory);
+
+                if ($diskFree !== false && $diskTotal !== false) {
+                    $maxSizeBytes = (int) $diskTotal;
+                    $usedBytes = $diskTotal - $diskFree;
+                    $usagePercentage = round(($usedBytes / $diskTotal) * 100, 2);
+
+                    return [
+                        'max_size_bytes' => $maxSizeBytes,
+                        'max_size_mb' => round($maxSizeBytes / 1024 / 1024, 2),
+                        'max_size_gb' => round($maxSizeBytes / 1024 / 1024 / 1024, 2),
+                        'usage_percentage' => $usagePercentage,
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            // Silently fail and return empty array
+        }
+
+        return [];
     }
 
     /**

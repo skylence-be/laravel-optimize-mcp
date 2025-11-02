@@ -51,9 +51,60 @@ Then ask your AI to connect to your remote server:
 
 This allows you to check production environment variables, cache/session drivers, and security settings without SSH access.
 
+## Database Monitoring & Alerts
+
+Set up automatic database size monitoring with growth tracking and email alerts:
+
+### Enable Monitoring
+
+1. Add to your `.env`:
+```env
+OPTIMIZE_MCP_DB_MONITORING=true
+OPTIMIZE_MCP_DB_NOTIFICATION_EMAILS=dev@example.com,ops@example.com
+OPTIMIZE_MCP_DB_WARNING_THRESHOLD=80
+OPTIMIZE_MCP_DB_CRITICAL_THRESHOLD=90
+```
+
+2. Run migrations:
+```bash
+php artisan migrate
+```
+
+3. Schedule the monitoring command in `app/Console/Kernel.php`:
+```php
+protected function schedule(Schedule $schedule)
+{
+    // Run database monitoring daily (or hourly, weekly, etc.)
+    $schedule->command('optimize-mcp:monitor-database')->daily();
+}
+```
+
+### Available Commands
+
+```bash
+# Check database size manually
+php artisan optimize-mcp:database-size
+
+# Run monitoring (logs size, calculates growth, sends alerts)
+php artisan optimize-mcp:monitor-database
+
+# Clean up old logs (keeps 90 days by default)
+php artisan optimize-mcp:prune-database-logs
+```
+
+### Features
+
+- **Automatic Tracking**: Logs database size, growth rate, and disk usage
+- **Growth Prediction**: Estimates when your database will be full based on growth trends
+- **Smart Alerts**: Email notifications at warning (80%) and critical (90%) thresholds
+- **Historical Data**: Track size over time to identify growth patterns
+- **Cross-Database**: Supports MySQL, PostgreSQL, and SQLite
+
 ## What's Included
 
 - **Configuration Analyzer**: Checks your Laravel config for performance and security
+- **Database Size Inspector**: Monitor database size, growth trends, and disk usage
+- **Database Monitoring & Alerts**: Automatic size tracking with email notifications
 - **Project Structure Analyzer**: Reviews your composer scripts, CI/CD, testing setup, and more
 - **Package Advisor**: Recommends useful packages for your project
 
