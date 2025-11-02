@@ -6,6 +6,7 @@ namespace Skylence\OptimizeMcp;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Skylence\OptimizeMcp\Console\DatabaseSizeCommand;
 use Skylence\OptimizeMcp\Console\InstallCommand;
 use Skylence\OptimizeMcp\Console\McpCommand;
 
@@ -52,6 +53,7 @@ class OptimizeMcpServiceProvider extends ServiceProvider
             $this->commands([
                 InstallCommand::class,
                 McpCommand::class,
+                DatabaseSizeCommand::class,
             ]);
         }
     }
