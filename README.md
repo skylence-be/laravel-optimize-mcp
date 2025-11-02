@@ -30,6 +30,24 @@ Your AI will use the installed MCP tools to:
 - Recommend useful packages and improvements
 - Provide actionable recommendations with code snippets
 
+## Remote Access for Staging/Production
+
+Want to analyze your staging or production environment? Enable HTTP access by adding these to your `.env` file:
+
+```env
+# Enable secure HTTP access
+OPTIMIZE_MCP_AUTH_ENABLED=true
+
+# Generate token: php artisan tinker --execute="echo bin2hex(random_bytes(32))"
+OPTIMIZE_MCP_API_TOKEN=your-secure-token-here
+```
+
+Then ask your AI to connect to your remote server:
+
+**"Connect to my production Laravel server at https://myapp.com and analyze the .env configuration"**
+
+This allows you to check production environment variables, cache/session drivers, and security settings without SSH access.
+
 ## What's Included
 
 - **Configuration Analyzer**: Checks your Laravel config for performance and security
