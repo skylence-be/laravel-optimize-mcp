@@ -22,6 +22,7 @@ use function Laravel\Prompts\intro;
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\confirm;
+use Skylence\OptimizeMcp\Install\Mcp\FileWriter;
 
 #[AsCommand('optimize-mcp:install', 'Install Laravel Optimize MCP')]
 class InstallCommand extends Command
@@ -39,6 +40,8 @@ class InstallCommand extends Command
     private Collection $selectedFeatures;
 
     private string $projectName;
+
+    private bool $configureHttpServer = false;
 
     /** @var array<non-empty-string> */
     private array $systemInstalledCodeEnvironments = [];
@@ -117,6 +120,10 @@ class InstallCommand extends Command
     {
         $this->selectedFeatures = $this->selectFeatures();
         $this->selectedTargetMcpClient = $this->selectTargetMcpClients();
+
+        if ($this->selectedTargetMcpClient->isNotEmpty()) {
+            $this->configureHttpServer = $this->shouldConfigureHttpServer();
+        }
     }
 
     protected function performInstallation(): void
@@ -146,6 +153,15 @@ class InstallCommand extends Command
             label: 'Laravel Sail detected. Configure Optimize MCP to use Sail?',
             default: $this->config->getSail(),
             hint: 'This will configure the MCP server to run through Sail. Note: Sail must be running to use Optimize MCP',
+        );
+    }
+
+    protected function shouldConfigureHttpServer(): bool
+    {
+        return confirm(
+            label: 'Configure HTTP access for remote servers (staging/production)?',
+            default: false,
+            hint: 'Adds HTTP server config to check remote .env variables and configuration',
         );
     }
 
@@ -297,11 +313,7 @@ class InstallCommand extends Command
             $mcp = $this->buildMcpCommand($mcpClient);
 
             try {
-                $result = $mcpClient->installMcp(
-                    array_shift($mcp),
-                    array_shift($mcp),
-                    $mcp
-                );
+                $result = $this->installMcpServers($mcpClient, $mcp);
 
                 if ($result) {
                     $this->line($this->greenTick);
@@ -325,12 +337,78 @@ class InstallCommand extends Command
             }
         }
 
+        if ($this->configureHttpServer) {
+            $this->displayHttpConfigurationInstructions();
+        }
+
         $this->config->setSail(
             $this->shouldUseSail()
         );
 
         $this->config->setEditors(
             $this->selectedTargetMcpClient->map(fn (McpClient $mcpClient): string => $mcpClient->name())->values()->toArray()
+        );
+    }
+
+    /**
+     * Install MCP servers (local and optionally HTTP) for the given client.
+     *
+     * @param  array<int, string>  $mcp
+     */
+    protected function installMcpServers(McpClient $mcpClient, array $mcp): bool
+    {
+        $path = $mcpClient->mcpConfigPath();
+        if (! $path) {
+            return $mcpClient->installMcp(
+                array_shift($mcp),
+                array_shift($mcp),
+                $mcp
+            );
+        }
+
+        $writer = new FileWriter($path);
+        $writer->configKey($mcpClient->mcpConfigKey());
+
+        // Add local PHP stdio server
+        $localKey = array_shift($mcp);
+        $command = array_shift($mcp);
+        $writer->addServer($localKey, $command, $mcp, []);
+
+        // Add HTTP server if configured
+        if ($this->configureHttpServer) {
+            $writer->addHttpServer(
+                'laravel-optimize-mcp-http',
+                'https://your-production-url.com/optimize-mcp',
+                [
+                    'Authorization' => 'Bearer YOUR-TOKEN-HERE',
+                ]
+            );
+        }
+
+        return $writer->save();
+    }
+
+    protected function displayHttpConfigurationInstructions(): void
+    {
+        $token = bin2hex(random_bytes(32));
+
+        note(
+            <<<NOTE
+            {$this->green('✓')} HTTP server configuration added!
+
+            Next steps to enable remote access:
+
+            1. Add to your production/staging .env file:
+               OPTIMIZE_MCP_AUTH_ENABLED=true
+               OPTIMIZE_MCP_API_TOKEN={$token}
+
+            2. Update your MCP config file with your production URL:
+               Replace "https://your-production-url.com/optimize-mcp"
+               with your actual URL (e.g., "https://myapp.com/optimize-mcp")
+
+            3. Add the token to your MCP config headers:
+               "headers": { "Authorization": "Bearer {$token}" }
+            NOTE
         );
     }
 

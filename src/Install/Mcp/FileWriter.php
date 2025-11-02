@@ -40,6 +40,23 @@ class FileWriter
         return $this;
     }
 
+    /**
+     * Add an HTTP MCP server with URL and headers.
+     *
+     * @param  string  $key  MCP Server Name
+     * @param  string  $url  Server URL
+     * @param  array<string, string>  $headers  HTTP headers
+     */
+    public function addHttpServer(string $key, string $url, array $headers = []): self
+    {
+        $this->serversToAdd[$key] = collect([
+            'url' => $url,
+            'headers' => $headers,
+        ])->filter()->toArray();
+
+        return $this;
+    }
+
     public function save(): bool
     {
         $this->ensureDirectoryExists();

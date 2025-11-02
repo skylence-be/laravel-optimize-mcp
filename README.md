@@ -16,7 +16,10 @@ Run the installation command and follow the prompts:
 php artisan optimize-mcp:install
 ```
 
-The installer will automatically detect and configure your code editor (Cursor, Claude Code, VS Code, or PhpStorm).
+The installer will:
+- Automatically detect and configure your code editor (Cursor, Claude Code, VS Code, or PhpStorm)
+- Ask if you want HTTP access for staging/production servers
+- Generate a secure token and configuration instructions for remote access
 
 ## Usage
 
@@ -32,7 +35,7 @@ Your AI will use the installed MCP tools to:
 
 ## Remote Access for Staging/Production
 
-Want to analyze your staging or production environment? Enable HTTP access by adding these to your `.env` file:
+Want to analyze your staging or production environment? The installer can configure this for you automatically, or you can set it up manually by adding these to your `.env` file:
 
 ```env
 # Enable secure HTTP access
