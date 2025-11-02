@@ -2,12 +2,20 @@
 
 Laravel Optimize MCP provides optimization tools and utilities for AI-assisted development through the Model Context Protocol (MCP).
 
+## Features
+
+- **Dual Server Mode**: Supports both PHP stdio (local) and HTTP (remote) MCP servers
+- **Configuration Analysis**: Analyze Laravel configuration for performance and security
+- **Token Authentication**: Secure HTTP endpoints with bearer token authentication
+- **Project Structure Analysis**: Analyze and optimize development workflow
+- **Package Recommendations**: Get smart package suggestions for your project
+
 ## Installation
 
 You can install the package via Composer:
 
 ```bash
-composer require laravel/optimize-mcp
+composer require skylence/laravel-optimize-mcp
 ```
 
 Run the installation command:
@@ -20,45 +28,129 @@ This will publish the configuration file to `config/optimize-mcp.php`.
 
 ## Configuration
 
-The package automatically registers its MCP server routes. No additional configuration is required!
+### PHP Stdio Server (Local Development)
 
-## Available Tools
+The package automatically registers MCP stdio routes for local development. Use the server key `php-laravel-optimize` in your Claude Desktop or MCP client configuration:
 
-### Ping
-
-A simple ping tool to test the MCP server connection.
-
-**Parameters:**
-- `message` (optional, default: "pong"): Custom message to include in the response
-- `include_timestamp` (optional, default: true): Whether to include the current timestamp
-- `include_app_info` (optional, default: false): Whether to include application information
-
-**Example Response:**
 ```json
 {
-  "status": "success",
-  "message": "pong",
-  "timestamp": "2025-11-02T02:39:00+00:00",
-  "app": {
-    "name": "Laravel",
-    "environment": "local",
-    "laravel_version": "12.0.0",
-    "php_version": "8.3.0"
+  "mcpServers": {
+    "php-laravel-optimize": {
+      "command": "php",
+      "args": ["artisan", "mcp:start", "optimize"]
+    }
   }
 }
 ```
 
-### EchoMessage
+### HTTP Server (Remote Access)
 
-Echo back any message you send - useful for testing MCP connectivity.
+For HTTP access, configure your `.env` file:
+
+```env
+# Enable/disable authentication (defaults to true)
+OPTIMIZE_MCP_AUTH_ENABLED=true
+
+# Generate a secure token: php artisan tinker --execute="echo bin2hex(random_bytes(32))"
+OPTIMIZE_MCP_API_TOKEN=your-secure-token-here
+```
+
+Use the server key `http-laravel-optimize` in your `.mcp.json` or MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "http-laravel-optimize": {
+      "url": "https://your-app.com/optimize-mcp",
+      "headers": {
+        "X-MCP-Token": "your-secure-token-here"
+      }
+    }
+  }
+}
+```
+
+Alternatively, you can use Bearer token authentication:
+
+```json
+{
+  "mcpServers": {
+    "http-laravel-optimize": {
+      "url": "https://your-app.com/optimize-mcp",
+      "headers": {
+        "Authorization": "Bearer your-secure-token-here"
+      }
+    }
+  }
+}
+```
+
+### Configuration Options
+
+Edit `config/optimize-mcp.php` to customize:
+
+```php
+return [
+    // Enable/disable specific tools
+    'tools' => [
+        'configuration-analyzer' => true,
+        'project-structure-analyzer' => false, // Disabled for HTTP by default
+        'package-advisor' => false, // Disabled for HTTP by default
+    ],
+
+    // HTTP endpoint configuration
+    'http' => [
+        'enabled' => true,
+        'prefix' => 'optimize-mcp',
+        'middleware' => [
+            \Skylence\OptimizeMcp\Http\Middleware\AuthenticateMcp::class,
+        ],
+    ],
+
+    // Authentication settings
+    'auth' => [
+        'enabled' => env('OPTIMIZE_MCP_AUTH_ENABLED', true),
+        'token' => env('OPTIMIZE_MCP_API_TOKEN'),
+    ],
+];
+```
+
+## Available Tools
+
+### ConfigurationAnalyzer
+
+Analyze your Laravel configuration for performance, security, and optimization opportunities.
 
 **Parameters:**
-- `message` (required): The message to echo back
+- `environment` (optional): Target environment (production/staging/local) - defaults to APP_ENV
 
 **Example Response:**
+```json
+{
+  "environment": "production",
+  "severity_counts": {
+    "critical": 0,
+    "warning": 2,
+    "info": 0
+  },
+  "issues": [],
+  "recommendations": [
+    {
+      "config": "cache.default",
+      "message": "Consider using Redis for better performance",
+      "benefit": "Faster cache operations"
+    }
+  ]
+}
 ```
-Echo: Your message here
-```
+
+**Features:**
+- Analyzes app configuration (debug mode, environment, timezone)
+- Checks cache, session, queue, and database drivers for production readiness
+- Identifies Telescope configuration issues
+- Recommends performance optimizations (OPcache, route/config caching)
+- Security checks (debug mode in production, driver configurations)
+- Environment-specific recommendations
 
 ### ProjectStructureAnalyzer
 
@@ -118,41 +210,6 @@ Analyze your project structure including composer scripts, GitHub workflows, tes
 - `rector.php` - Rector automated refactoring configuration
 - `composer-scripts.json` - Recommended composer scripts for testing and quality
 
-### ConfigurationAnalyzer
-
-Analyze your Laravel configuration for performance, security, and optimization opportunities.
-
-**Parameters:**
-- `environment` (optional): Target environment (production/staging/local) - defaults to APP_ENV
-
-**Example Response:**
-```json
-{
-  "environment": "production",
-  "severity_counts": {
-    "critical": 0,
-    "warning": 2,
-    "info": 0
-  },
-  "issues": [],
-  "recommendations": [
-    {
-      "config": "cache.default",
-      "message": "Consider using Redis for better performance",
-      "benefit": "Faster cache operations"
-    }
-  ]
-}
-```
-
-**Features:**
-- Analyzes app configuration (debug mode, environment, timezone)
-- Checks cache, session, queue, and database drivers for production readiness
-- Identifies Telescope configuration issues
-- Recommends performance optimizations (OPcache, route/config caching)
-- Security checks (debug mode in production, driver configurations)
-- Environment-specific recommendations
-
 ### PackageAdvisor
 
 Analyze your Laravel project and get comprehensive package recommendations to improve your development workflow.
@@ -195,34 +252,63 @@ For more details on all available tools, see [TOOLS.md](TOOLS.md).
 
 ## Testing the Server
 
-You can test the MCP server using the MCP Inspector:
+### Testing PHP Stdio Server
+
+You can test the local MCP server using the MCP Inspector:
 
 ```bash
-# For local servers
 php artisan mcp:inspector optimize
-
-# For web servers
-php artisan mcp:inspector mcp/optimize
 ```
 
-## Usage with MCP Clients
+### Testing HTTP Server
 
-Once installed and configured, you can connect to the server from any MCP-compatible client (like Claude Desktop, Cursor, VS Code, etc.).
+Test HTTP endpoints with curl:
 
-### Local Server Configuration
+```bash
+# Without authentication (if disabled)
+curl -X POST http://localhost/optimize-mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 
-For local servers, add the following to your MCP client configuration:
+# With X-MCP-Token header
+curl -X POST http://localhost/optimize-mcp \
+  -H "Content-Type: application/json" \
+  -H "X-MCP-Token: your-token-here" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 
-```json
-{
-  "mcpServers": {
-    "laravel-optimize": {
-      "command": "php",
-      "args": ["artisan", "mcp:start", "optimize"]
-    }
-  }
-}
+# With Bearer token
+curl -X POST http://localhost/optimize-mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token-here" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
+
+## Security
+
+### Token Authentication
+
+HTTP endpoints are secured with token authentication by default. Configure in your `.env`:
+
+```env
+OPTIMIZE_MCP_AUTH_ENABLED=true
+OPTIMIZE_MCP_API_TOKEN=your-secure-token
+```
+
+Generate a secure token:
+
+```bash
+php artisan tinker --execute="echo bin2hex(random_bytes(32))"
+```
+
+### Disabling Authentication
+
+For local development only, you can disable authentication:
+
+```env
+OPTIMIZE_MCP_AUTH_ENABLED=false
+```
+
+**Warning**: Never disable authentication in production environments.
 
 ## Creating Custom Tools
 
