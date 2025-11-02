@@ -1,0 +1,106 @@
+{
+    "$schema": "https://raw.githubusercontent.com/captainhookphp/captainhook/master/captainhook.schema.json",
+    "config": {
+        "fail-on-first-error": false,
+        "ansi-colors": true,
+        "includes": [],
+        "run-path": "./",
+        "git-directory": "./.git"
+    },
+    "pre-commit": {
+        "enabled": true,
+        "actions": [
+            {
+                "action": "\\CaptainHook\\App\\Hook\\Composer\\Action\\CheckLockFile",
+                "options": {
+                    "label": "Checking composer.lock..."
+                }
+            },
+            {
+                "action": "composer test:rector",
+                "options": {
+                    "label": "Running Rector..."
+                },
+                "conditions": [
+                    {
+                        "exec": "\\CaptainHook\\App\\Hook\\Condition\\FileStaged\\OfType",
+                        "args": ["php"]
+                    }
+                ]
+            },
+            {
+                "action": "composer test:lint",
+                "options": {
+                    "label": "Running Pint..."
+                },
+                "conditions": [
+                    {
+                        "exec": "\\CaptainHook\\App\\Hook\\Condition\\FileStaged\\OfType",
+                        "args": ["php"]
+                    }
+                ]
+            },
+            {
+                "action": "composer test:types",
+                "options": {
+                    "label": "Running PHPStan..."
+                },
+                "conditions": [
+                    {
+                        "exec": "\\CaptainHook\\App\\Hook\\Condition\\FileStaged\\OfType",
+                        "args": ["php"]
+                    }
+                ]
+            }
+        ]
+    },
+    "commit-msg": {
+        "enabled": true,
+        "actions": [
+            {
+                "action": "\\CaptainHook\\App\\Hook\\Message\\Action\\Regex",
+                "options": {
+                    "regex": "/(^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\\(.+\\))?:\\s.{1,}|(Merge|Initial commit))/",
+                    "error": "Commit message must follow conventional commits format: type(scope): description"
+                }
+            }
+        ]
+    },
+    "pre-push": {
+        "enabled": true,
+        "actions": [
+            {
+                "action": "composer test:rector",
+                "options": {
+                    "label": "Checking Rector..."
+                }
+            },
+            {
+                "action": "composer test:lint",
+                "options": {
+                    "label": "Checking code style with Pint..."
+                }
+            }
+        ]
+    },
+    "prepare-commit-msg": {
+        "enabled": false,
+        "actions": []
+    },
+    "post-commit": {
+        "enabled": false,
+        "actions": []
+    },
+    "post-merge": {
+        "enabled": false,
+        "actions": []
+    },
+    "post-checkout": {
+        "enabled": false,
+        "actions": []
+    },
+    "post-rewrite": {
+        "enabled": false,
+        "actions": []
+    }
+}

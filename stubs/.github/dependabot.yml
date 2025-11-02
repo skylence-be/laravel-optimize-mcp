@@ -1,0 +1,85 @@
+version: 2
+
+updates:
+  # Composer (PHP) dependencies
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Brussels"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "skylence-be"
+    labels:
+      - "dependencies"
+      - "php"
+      - "composer"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      laravel:
+        patterns:
+          - "laravel/*"
+        update-types:
+          - "minor"
+          - "patch"
+      development:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # pnpm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Brussels"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "skylence-be"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "pnpm"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      vite:
+        patterns:
+          - "vite*"
+          - "*vite*"
+        update-types:
+          - "minor"
+          - "patch"
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Brussels"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "skylence-be"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      include: "scope"

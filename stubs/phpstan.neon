@@ -1,0 +1,17 @@
+includes:
+    - vendor/nesbot/carbon/extension.neon
+
+parameters:
+    treatPhpDocTypesAsCertain: false
+
+    paths:
+        - app/
+
+    # Level 10 is the highest level
+    level: 8
+
+    ignoreErrors:
+#        - '#PHPDoc tag @var#'
+#
+    excludePaths:
+         - */tests/*

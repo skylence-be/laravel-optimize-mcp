@@ -65,7 +65,7 @@ Echo: Your message here
 Analyze your project structure including composer scripts, GitHub workflows, testing setup, Git hooks, and deployment process.
 
 **Parameters:**
-- None required
+- `include_actions` (optional, default: false): Include actionable recommendations with stub file contents and installation commands
 
 **Example Response:**
 ```json
@@ -99,6 +99,24 @@ Analyze your project structure including composer scripts, GitHub workflows, tes
 - Analyzes testing setup (Pest, PHPUnit, browser testing)
 - Checks for Git hooks (GrumPHP, CaptainHook)
 - Validates deployment process (Deployer, Laravel Forge)
+- **NEW**: With `include_actions=true`, returns actionable recommendations including:
+  - Installation commands for recommended packages
+  - Complete stub file contents ready to copy (GitHub workflows, CaptainHook config, Deployer config, etc.)
+  - Composer scripts to merge into your composer.json
+  - Specific file destinations for each stub
+
+**Available Stub Files:**
+- `.github/` - Complete GitHub configuration directory including:
+  - `.github/workflows/tests.yml` - Main CI/CD workflow with parallel testing, Pint, PHPStan, Rector, type coverage
+  - `.github/workflows/dependabot-auto-merge.yml` - Auto-merge workflow for Dependabot PRs
+  - `.github/actions/setup/action.yml` - Custom GitHub Action for PHP, Composer, and pnpm setup
+  - `.github/dependabot.yml` - Dependabot configuration for automated dependency updates
+- `captainhook.json` - Git hooks configuration with pre-commit checks
+- `deploy.php` - Deployer configuration for zero-downtime deployments
+- `pint.json` - Laravel Pint code style configuration
+- `phpstan.neon` - PHPStan static analysis configuration
+- `rector.php` - Rector automated refactoring configuration
+- `composer-scripts.json` - Recommended composer scripts for testing and quality
 
 ### ConfigurationAnalyzer
 

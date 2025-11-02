@@ -1,0 +1,300 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+  workflow_call:
+
+permissions:
+  contents: read
+
+# Cancel in-progress runs for the same workflow and branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: Setup & Build
+    runs-on: ubuntu-latest
+    environment: Testing
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+        with:
+          show-progress: false
+          fetch-depth: 1
+
+      - name: 🔧 Setup PHP, Composer, and pnpm
+        uses: ./.github/actions/setup
+        with:
+          php-version: 8.4
+          coverage: xdebug
+
+      - name: 📦 Cache Composer Dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: 📦 Install PHP Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader --quiet
+
+      - name: 📦 Cache pnpm Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: 📦 Install Node Dependencies
+        run: pnpm install --silent --frozen-lockfile
+
+      - name: 📋 Copy Environment File
+        run: cp .env.example .env
+
+      - name: 🔑 Generate Application Key
+        run: php artisan key:generate --quiet
+
+      - name: 🏗️ Build Assets
+        run: pnpm run build > /dev/null 2>&1
+
+      - name: 🏗️ Build ThemeNexus Module
+        run: pnpm run build --config Modules/ThemeNexus/vite.config.js > /dev/null 2>&1
+
+      - name: 📤 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            vendor/
+            !vendor/pestphp/pest/.temp/**
+            node_modules/
+            public/build/
+            public/build-*/
+            bootstrap/cache/
+          retention-days: 1
+
+  type-coverage:
+    name: Type Coverage (Pest)
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+        with:
+          show-progress: false
+          fetch-depth: 1
+
+      - name: 🔧 Setup PHP
+        uses: ./.github/actions/setup
+        with:
+          php-version: 8.4
+
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: build-artifacts
+
+      - name: 🔧 Fix Permissions
+        run: chmod +x vendor/bin/*
+
+      - name: 🧪 Type Coverage Check
+        run: |
+          echo "::group::Type Coverage (Pest)"
+          ./vendor/bin/pest --type-coverage --min=100
+          echo "::endgroup::"
+
+  rector:
+    name: Code Quality (Rector)
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+        with:
+          show-progress: false
+          fetch-depth: 1
+
+      - name: 🔧 Setup PHP
+        uses: ./.github/actions/setup
+        with:
+          php-version: 8.4
+
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: build-artifacts
+
+      - name: 🔧 Fix Permissions
+        run: chmod +x vendor/bin/*
+
+      - name: 🔧 Code Quality Check
+        run: |
+          echo "::group::Code Quality (Rector)"
+          ./vendor/bin/rector --dry-run
+          echo "::endgroup::"
+
+  pint:
+    name: Code Style (Pint)
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+        with:
+          show-progress: false
+          fetch-depth: 1
+
+      - name: 🔧 Setup PHP
+        uses: ./.github/actions/setup
+        with:
+          php-version: 8.4
+
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: build-artifacts
+
+      - name: 🔧 Fix Permissions
+        run: chmod +x vendor/bin/*
+
+      - name: 🎨 Code Style Check
+        run: |
+          echo "::group::Code Style (Pint)"
+          ./vendor/bin/pint --test
+          echo "::endgroup::"
+
+  phpstan:
+    name: Static Analysis (PHPStan)
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+        with:
+          show-progress: false
+          fetch-depth: 1
+
+      - name: 🔧 Setup PHP
+        uses: ./.github/actions/setup
+        with:
+          php-version: 8.4
+
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: build-artifacts
+
+      - name: 🔧 Fix Permissions
+        run: chmod +x vendor/bin/*
+
+      - name: 🔍 Static Analysis
+        run: |
+          echo "::group::Static Analysis (PHPStan)"
+          ./vendor/bin/phpstan analyse --no-progress --configuration=phpstan.neon --memory-limit=2G
+          echo "::endgroup::"
+
+  tests:
+    name: Unit & Feature Tests (Shard ${{ matrix.shard }}/5)
+    runs-on: ubuntu-latest
+    environment: Testing
+    needs: [setup, type-coverage, rector, pint, phpstan]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v5
+        with:
+          show-progress: false
+          fetch-depth: 1
+
+      - name: 🔧 Setup PHP
+        uses: ./.github/actions/setup
+        with:
+          php-version: 8.4
+
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: build-artifacts
+
+      - name: 🔧 Fix Permissions
+        run: |
+          chmod +x vendor/bin/*
+          mkdir -p vendor/pestphp/pest/.temp
+          chmod -R 755 vendor/pestphp/pest/.temp
+
+      - name: 📋 Copy Environment File
+        run: cp .env.example .env
+
+      - name: 🔑 Generate Application Key
+        run: php artisan key:generate --quiet
+
+      - name: ✅ Unit & Feature Tests (Shard ${{ matrix.shard }}/5)
+        run: |
+          echo "::group::Unit & Feature Tests - Shard ${{ matrix.shard }}/5"
+          ./vendor/bin/pest --colors=always --parallel --shard=${{ matrix.shard }}/5 --no-coverage
+          echo "::endgroup::"
+
+  test-summary:
+    name: Test Results Summary
+    runs-on: ubuntu-latest
+    needs: [type-coverage, rector, pint, phpstan, tests]
+    if: always()
+
+    steps:
+      - name: ✅ All Tests Passed
+        if: |
+          needs.type-coverage.result == 'success' &&
+          needs.rector.result == 'success' &&
+          needs.pint.result == 'success' &&
+          needs.phpstan.result == 'success' &&
+          needs.tests.result == 'success'
+        run: |
+          echo "::notice::✅ All quality checks and test shards completed successfully!"
+          echo "### ✅ Test Suite Passed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Type Coverage (Pest): Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code Quality (Rector): Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code Style (Pint): Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Static Analysis (PHPStan): Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Unit & Feature Tests (5 shards): All Passed" >> $GITHUB_STEP_SUMMARY
+
+      - name: ❌ Tests Failed
+        if: |
+          needs.type-coverage.result != 'success' ||
+          needs.rector.result != 'success' ||
+          needs.pint.result != 'success' ||
+          needs.phpstan.result != 'success' ||
+          needs.tests.result != 'success'
+        run: |
+          echo "::error::❌ Some tests or quality checks failed"
+          echo "### ❌ Test Suite Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Type Coverage (Pest): ${{ needs.type-coverage.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Code Quality (Rector): ${{ needs.rector.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Code Style (Pint): ${{ needs.pint.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Static Analysis (PHPStan): ${{ needs.phpstan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit & Feature Tests: ${{ needs.tests.result }}" >> $GITHUB_STEP_SUMMARY
+          exit 1

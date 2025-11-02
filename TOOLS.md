@@ -79,13 +79,15 @@ Echo: Testing the echo tool!
 **Description:** Analyze project structure including composer scripts, GitHub workflows, testing setup, Git hooks, and deployment process.
 
 **Parameters:**
-- None required
+- `include_actions` (boolean, optional, default: false) - Include actionable recommendations with stub file contents and installation commands
 
 **Example Request:**
 ```json
 {
   "name": "project-structure-analyzer",
-  "arguments": {}
+  "arguments": {
+    "include_actions": true
+  }
 }
 ```
 
@@ -122,6 +124,29 @@ Echo: Testing the echo tool!
       "message": "Install GrumPHP or CaptainHook for pre-commit checks",
       "benefit": "Prevents pushing broken code to CI/CD"
     }
+  ],
+  "actions": [
+    {
+      "category": "ci-cd",
+      "message": "No GitHub Actions workflows found",
+      "type": "copy_directory",
+      "stub_file": ".github",
+      "stub_destination": ".github",
+      "files": {
+        ".github/workflows/tests.yml": "... 8494 bytes - complete CI/CD workflow ...",
+        ".github/workflows/dependabot-auto-merge.yml": "... 2098 bytes - auto-merge workflow ...",
+        ".github/actions/setup/action.yml": "... 2736 bytes - custom setup action ...",
+        ".github/dependabot.yml": "... 1745 bytes - dependabot config ..."
+      }
+    },
+    {
+      "category": "git-hooks",
+      "type": "install_and_copy",
+      "command": "composer require --dev captainhook/captainhook",
+      "stub_file": "captainhook.json",
+      "stub_destination": "captainhook.json",
+      "stub_contents": "... full captainhook.json ..."
+    }
   ]
 }
 ```
@@ -135,6 +160,11 @@ Echo: Testing the echo tool!
 - **Deployment**: Checks for Deployer, Laravel Forge, or other deployment tools
 - **Good Practices**: Identifies well-configured development workflows
 - **Recommendations**: Suggests missing tools and process improvements
+- **Actionable Response** (`include_actions=true`): Returns complete stub file contents and installation commands:
+  - Ready-to-use configuration files (GitHub workflows, Git hooks, Deployer, etc.)
+  - Composer/npm commands to install recommended packages
+  - File destinations for each stub
+  - Action types: `install`, `copy_stub`, `install_and_copy`, `merge_json`
 
 ---
 
