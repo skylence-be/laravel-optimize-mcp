@@ -1,0 +1,55 @@
+{
+    "name": "skylence/laravel-optimize-mcp",
+    "description": "Laravel Optimize MCP provides optimization tools and utilities for AI-assisted development",
+    "keywords": [
+        "laravel",
+        "mcp",
+        "optimization",
+        "ai"
+    ],
+    "homepage": "https://github.com/laravel/optimize-mcp",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^11.0|^12.0",
+        "illuminate/contracts": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0",
+        "laravel/mcp": "^0.3.0",
+        "laravel/prompts": "^0.3.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.20",
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^2.0|^3.0",
+        "phpstan/phpstan": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Skylence\\OptimizeMcp\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Skylence\\OptimizeMcp\\OptimizeMcpServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "lint": "pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
