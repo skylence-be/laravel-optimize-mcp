@@ -137,6 +137,9 @@ final class ConfigurationAnalyzer extends Tool
             foreach ($recommendations as $rec) {
                 $lines[] = "  • {$rec['config']}: {$rec['message']}";
                 $lines[] = "    → {$rec['benefit']}";
+                if (isset($rec['setup'])) {
+                    $lines[] = "    Setup: {$rec['setup']}";
+                }
             }
             $lines[] = "";
         }
