@@ -44,13 +44,13 @@ final class PackageAdvisor extends Tool
 
         $composerPath = base_path('composer.json');
 
-        if (!File::exists($composerPath)) {
+        if (! File::exists($composerPath)) {
             return Response::error('composer.json not found in project root');
         }
 
         $composerData = json_decode(File::get($composerPath), true);
 
-        if (!$composerData) {
+        if (! $composerData) {
             return Response::error('Failed to parse composer.json');
         }
 
@@ -66,7 +66,7 @@ final class PackageAdvisor extends Tool
 
         // Add packages to composer.json if requested
         $addedPackages = [];
-        if ($addToComposer && !empty($missing)) {
+        if ($addToComposer && ! empty($missing)) {
             $addedPackages = $this->addPackagesToComposer($composerPath, $composerData, $missing);
         }
 
@@ -87,7 +87,7 @@ final class PackageAdvisor extends Tool
                     $npmRecommendations = $this->getNpmRecommendations();
                     $missingNpm = $this->filterMissingPackages($npmRecommendations, $installedNpmPackages);
 
-                    if (!empty($missingNpm)) {
+                    if (! empty($missingNpm)) {
                         $addedNpmPackages = $this->addPackagesToPackageJson($packageJsonPath, $packageJsonData, $missingNpm);
                     }
                 }
@@ -104,11 +104,41 @@ final class PackageAdvisor extends Tool
             'outdated_patterns' => $outdated,
             'installed_packages' => $installedPackages,
             'added_to_composer' => $addedPackages,
-            'composer_updated' => !empty($addedPackages),
+            'composer_updated' => ! empty($addedPackages),
             'added_to_package_json' => $addedNpmPackages,
-            'package_json_updated' => !empty($addedNpmPackages),
+            'package_json_updated' => ! empty($addedNpmPackages),
             'package_manager' => $packageManager,
         ]);
+    }
+
+    /**
+     * Detect environment capabilities.
+     */
+    private function detectEnvironment(): array
+    {
+        $isWindows = PHP_OS_FAMILY === 'Windows';
+        $hasPhpBat = false;
+        $hasComposerBat = false;
+        $hasPosix = extension_loaded('posix');
+        $hasPcntl = extension_loaded('pcntl');
+
+        if ($isWindows) {
+            // Check for php.bat and composer.bat on Windows
+            exec('where php 2>nul', $phpOutput);
+            exec('where composer 2>nul', $composerOutput);
+
+            $hasPhpBat = ! empty($phpOutput) && str_contains(implode('', $phpOutput), '.bat');
+            $hasComposerBat = ! empty($composerOutput) && str_contains(implode('', $composerOutput), '.bat');
+        }
+
+        return [
+            'is_windows' => $isWindows,
+            'has_php_bat' => $hasPhpBat,
+            'has_composer_bat' => $hasComposerBat,
+            'has_posix' => $hasPosix,
+            'has_pcntl' => $hasPcntl,
+            'supports_horizon' => $hasPosix || $hasPcntl,
+        ];
     }
 
     /**
@@ -116,7 +146,9 @@ final class PackageAdvisor extends Tool
      */
     private function getRecommendations(array $installedPackages): array
     {
-        return [
+        $env = $this->detectEnvironment();
+
+        $recommendations = [
             // Essential packages - start here
             'laravel/pint' => 'Code style fixer using Laravel conventions',
             'laravel/boost' => 'Essential performance optimizer - preloads routes/config for 2-5x faster boot time',
@@ -132,7 +164,6 @@ final class PackageAdvisor extends Tool
             // Auth & Security
             'laravel/breeze' => 'Minimal authentication scaffolding',
             'spatie/laravel-permission' => 'Role and permission management',
-            'enlightn/enlightn' => 'Laravel application security and performance scanner',
 
             // Database & API
             'spatie/laravel-query-builder' => 'Build Eloquent queries from API requests',
@@ -144,7 +175,6 @@ final class PackageAdvisor extends Tool
             'laravel/pulse' => 'Lightweight production-safe application monitoring',
             'laravel/telescope' => 'Debug assistant for LOCAL/STAGING only (use Pulse for production)',
             'skylence/laravel-telescope-mcp' => 'MCP integration for Telescope - AI-powered access to debugging data',
-            'laravel/horizon' => 'Queue monitoring dashboard',
             'barryvdh/laravel-debugbar' => 'Debug bar for development (dev only)',
             'spatie/laravel-ray' => 'Debug tool with beautiful interface',
             'beyondcode/laravel-dump-server' => 'Collect dump() output in a separate window',
@@ -153,6 +183,13 @@ final class PackageAdvisor extends Tool
             'rector/rector' => 'Automated refactoring and upgrades',
             'phpstan/phpstan' => 'Advanced static analysis (alternative to Larastan)',
         ];
+
+        // Only add laravel/horizon if ext-posix or ext-pcntl is available
+        if ($env['supports_horizon']) {
+            $recommendations['laravel/horizon'] = 'Queue monitoring dashboard (requires ext-posix or ext-pcntl)';
+        }
+
+        return $recommendations;
     }
 
     /**
@@ -163,7 +200,7 @@ final class PackageAdvisor extends Tool
         $missing = [];
 
         foreach ($recommendations as $package => $description) {
-            if (!in_array($package, $installedPackages)) {
+            if (! in_array($package, $installedPackages)) {
                 $missing[$package] = $description;
             }
         }
@@ -211,7 +248,7 @@ final class PackageAdvisor extends Tool
                 }
 
                 // Check for Telescope without optimization packages
-                if (in_array('laravel/telescope', $packages) && !in_array('binarcode/laravel-telescope-flusher', $packages)) {
+                if (in_array('laravel/telescope', $packages) && ! in_array('binarcode/laravel-telescope-flusher', $packages)) {
                     $patterns[] = [
                         'package' => 'laravel/telescope',
                         'issue' => 'Missing Optimization Package',
@@ -220,7 +257,7 @@ final class PackageAdvisor extends Tool
                 }
 
                 // Check for Telescope without MCP integration
-                if (in_array('laravel/telescope', $packages) && !in_array('skylence/laravel-telescope-mcp', $packages)) {
+                if (in_array('laravel/telescope', $packages) && ! in_array('skylence/laravel-telescope-mcp', $packages)) {
                     $patterns[] = [
                         'package' => 'laravel/telescope',
                         'issue' => 'Missing MCP Integration',
@@ -234,39 +271,76 @@ final class PackageAdvisor extends Tool
     }
 
     /**
-     * Add recommended packages to composer.json.
+     * Install recommended packages using composer require.
      */
     private function addPackagesToComposer(string $composerPath, array $composerData, array $missing): array
     {
         $devPackages = ['barryvdh/laravel-ide-helper', 'barryvdh/laravel-debugbar', 'beyondcode/laravel-dump-server'];
+        $specialVersions = [
+            'skylence/laravel-telescope-mcp' => 'dev-main',
+        ];
         $added = ['require' => [], 'require-dev' => []];
+
+        // Add repository for skylence/laravel-telescope-mcp if it's in missing packages
+        if (isset($missing['skylence/laravel-telescope-mcp'])) {
+            if (! isset($composerData['repositories'])) {
+                $composerData['repositories'] = [];
+            }
+
+            $repoExists = false;
+            foreach ($composerData['repositories'] as $repo) {
+                if (isset($repo['url']) && str_contains($repo['url'], 'laravel-telescope-mcp')) {
+                    $repoExists = true;
+                    break;
+                }
+            }
+
+            if (! $repoExists) {
+                $composerData['repositories'][] = [
+                    'type' => 'vcs',
+                    'url' => 'https://github.com/skylence-be/laravel-telescope-mcp',
+                ];
+
+                // Write back to composer.json to add repository
+                File::put(
+                    $composerPath,
+                    json_encode($composerData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n"
+                );
+            }
+        }
+
+        // Separate packages by production vs dev
+        $prodPackages = [];
+        $devOnlyPackages = [];
 
         foreach ($missing as $package => $description) {
             $isDev = in_array($package, $devPackages);
-            $section = $isDev ? 'require-dev' : 'require';
+            $version = $specialVersions[$package] ?? '';
 
-            // Add with latest version constraint
-            if (!isset($composerData[$section])) {
-                $composerData[$section] = [];
+            $packageSpec = $version ? "{$package}:{$version}" : $package;
+
+            if ($isDev) {
+                $devOnlyPackages[] = $packageSpec;
+                $added['require-dev'][] = $package;
+            } else {
+                $prodPackages[] = $packageSpec;
+                $added['require'][] = $package;
             }
-
-            $composerData[$section][$package] = '*';
-            $added[$section][] = $package;
         }
 
-        // Sort the packages alphabetically
-        if (isset($composerData['require'])) {
-            ksort($composerData['require']);
-        }
-        if (isset($composerData['require-dev'])) {
-            ksort($composerData['require-dev']);
+        // Run composer require commands
+        $env = $this->detectEnvironment();
+        $composerCmd = $env['has_composer_bat'] ? 'composer.bat' : 'composer';
+
+        if (! empty($prodPackages)) {
+            $command = $composerCmd.' require '.implode(' ', $prodPackages);
+            exec($command, $output, $returnCode);
         }
 
-        // Write back to composer.json with pretty print
-        File::put(
-            $composerPath,
-            json_encode($composerData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n"
-        );
+        if (! empty($devOnlyPackages)) {
+            $command = $composerCmd.' require --dev '.implode(' ', $devOnlyPackages);
+            exec($command, $output, $returnCode);
+        }
 
         return $added;
     }
@@ -311,39 +385,55 @@ final class PackageAdvisor extends Tool
     }
 
     /**
-     * Add recommended packages to package.json.
+     * Install recommended packages using npm/pnpm.
      */
     private function addPackagesToPackageJson(string $packageJsonPath, array $packageJsonData, array $missing): array
     {
         $devPackages = ['autoprefixer', 'prettier', 'eslint'];
         $added = ['dependencies' => [], 'devDependencies' => []];
 
+        // Separate packages by production vs dev
+        $prodPackages = [];
+        $devOnlyPackages = [];
+
         foreach ($missing as $package => $description) {
             $isDev = in_array($package, $devPackages);
-            $section = $isDev ? 'devDependencies' : 'dependencies';
 
-            // Add with latest version constraint
-            if (!isset($packageJsonData[$section])) {
-                $packageJsonData[$section] = [];
+            if ($isDev) {
+                $devOnlyPackages[] = $package;
+                $added['devDependencies'][] = $package;
+            } else {
+                $prodPackages[] = $package;
+                $added['dependencies'][] = $package;
+            }
+        }
+
+        // Detect package manager
+        $packageManager = $this->detectPackageManager();
+
+        // Run installation commands
+        if ($packageManager === 'pnpm') {
+            if (! empty($prodPackages)) {
+                $command = 'pnpm add '.implode(' ', $prodPackages);
+                exec($command, $output, $returnCode);
             }
 
-            $packageJsonData[$section][$package] = '^1.0.0';
-            $added[$section][] = $package;
-        }
+            if (! empty($devOnlyPackages)) {
+                $command = 'pnpm add -D '.implode(' ', $devOnlyPackages);
+                exec($command, $output, $returnCode);
+            }
+        } else {
+            // npm
+            if (! empty($prodPackages)) {
+                $command = 'npm install '.implode(' ', $prodPackages);
+                exec($command, $output, $returnCode);
+            }
 
-        // Sort the packages alphabetically
-        if (isset($packageJsonData['dependencies'])) {
-            ksort($packageJsonData['dependencies']);
+            if (! empty($devOnlyPackages)) {
+                $command = 'npm install --save-dev '.implode(' ', $devOnlyPackages);
+                exec($command, $output, $returnCode);
+            }
         }
-        if (isset($packageJsonData['devDependencies'])) {
-            ksort($packageJsonData['devDependencies']);
-        }
-
-        // Write back to package.json with pretty print
-        File::put(
-            $packageJsonPath,
-            json_encode($packageJsonData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n"
-        );
 
         return $added;
     }
@@ -354,101 +444,99 @@ final class PackageAdvisor extends Tool
     private function buildSummary(array $missing, array $outdated, array $installed, array $addedPackages = [], array $addedNpmPackages = [], ?string $packageManager = null): string
     {
         $lines = [];
-        $lines[] = "📦 Laravel Package Recommendations";
-        $lines[] = "";
-        $lines[] = "Total Installed Packages: " . count($installed);
-        $lines[] = "";
+        $lines[] = '📦 Laravel Package Recommendations';
+        $lines[] = '';
+        $lines[] = 'Total Installed Packages: '.count($installed);
+        $lines[] = '';
 
-        if (!empty($missing)) {
-            $lines[] = "🎯 Recommended Packages (" . count($missing) . "):";
+        if (! empty($missing)) {
+            $lines[] = '🎯 Recommended Packages ('.count($missing).'):';
             foreach ($missing as $package => $description) {
                 $lines[] = "  • {$package}";
                 $lines[] = "    → {$description}";
             }
-            $lines[] = "";
+            $lines[] = '';
         } else {
-            $lines[] = "✅ All recommended packages are already installed!";
-            $lines[] = "";
+            $lines[] = '✅ All recommended packages are already installed!';
+            $lines[] = '';
         }
 
-        if (!empty($outdated)) {
-            $lines[] = "⚠️ Outdated Patterns (" . count($outdated) . "):";
+        if (! empty($outdated)) {
+            $lines[] = '⚠️ Outdated Patterns ('.count($outdated).'):';
             foreach ($outdated as $pattern) {
                 $lines[] = "  • {$pattern['package']}: {$pattern['issue']}";
                 $lines[] = "    → {$pattern['recommendation']}";
             }
-            $lines[] = "";
+            $lines[] = '';
         }
 
-        // Show what was added to composer.json
-        if (!empty($addedPackages) && (!empty($addedPackages['require']) || !empty($addedPackages['require-dev']))) {
-            $lines[] = "✅ ADDED TO COMPOSER.JSON:";
-            if (!empty($addedPackages['require'])) {
-                $lines[] = "  Production packages:";
+        // Show what was installed via composer
+        if (! empty($addedPackages) && (! empty($addedPackages['require']) || ! empty($addedPackages['require-dev']))) {
+            $lines[] = '✅ INSTALLED PACKAGES:';
+            if (! empty($addedPackages['require'])) {
+                $lines[] = '  Production packages:';
                 foreach ($addedPackages['require'] as $package) {
                     $lines[] = "    • {$package}";
                 }
             }
-            if (!empty($addedPackages['require-dev'])) {
-                $lines[] = "  Development packages:";
+            if (! empty($addedPackages['require-dev'])) {
+                $lines[] = '  Development packages:';
                 foreach ($addedPackages['require-dev'] as $package) {
                     $lines[] = "    • {$package}";
                 }
             }
-            $lines[] = "";
-            $lines[] = "⚡ Next step: Run 'composer update' to install the packages";
-        } elseif (!empty($missing)) {
-            $lines[] = "💡 Install missing packages:";
+            $lines[] = '';
+        } elseif (! empty($missing)) {
+            $lines[] = '💡 To install missing packages, run:';
             $devPackages = ['barryvdh/laravel-ide-helper', 'barryvdh/laravel-debugbar', 'beyondcode/laravel-dump-server'];
-            $prodPackages = array_filter(array_keys($missing), fn($p) => !in_array($p, $devPackages));
-            $devOnlyPackages = array_filter(array_keys($missing), fn($p) => in_array($p, $devPackages));
+            $prodPackages = array_filter(array_keys($missing), fn ($p) => ! in_array($p, $devPackages));
+            $devOnlyPackages = array_filter(array_keys($missing), fn ($p) => in_array($p, $devPackages));
 
-            if (!empty($prodPackages)) {
-                $lines[] = "  composer require " . implode(' ', $prodPackages);
+            if (! empty($prodPackages)) {
+                $lines[] = '  composer require '.implode(' ', $prodPackages);
             }
-            if (!empty($devOnlyPackages)) {
-                $lines[] = "  composer require --dev " . implode(' ', $devOnlyPackages);
+            if (! empty($devOnlyPackages)) {
+                $lines[] = '  composer require --dev '.implode(' ', $devOnlyPackages);
             }
-            $lines[] = "";
-            $lines[] = "Or use add_to_composer=true to automatically add them to composer.json";
+            $lines[] = '';
+            $lines[] = 'Or use add_to_composer=true to automatically install them';
         } else {
-            $lines[] = "💡 (No missing packages)";
+            $lines[] = '💡 (No missing packages)';
         }
 
-        // Show what was added to package.json
-        if (!empty($addedNpmPackages) && (!empty($addedNpmPackages['dependencies']) || !empty($addedNpmPackages['devDependencies']))) {
-            $lines[] = "";
-            $lines[] = "✅ ADDED TO PACKAGE.JSON:";
-            if (!empty($addedNpmPackages['dependencies'])) {
-                $lines[] = "  Dependencies:";
+        // Show what was installed via npm/pnpm
+        if (! empty($addedNpmPackages) && (! empty($addedNpmPackages['dependencies']) || ! empty($addedNpmPackages['devDependencies']))) {
+            $lines[] = '';
+            $pmName = strtoupper($packageManager ?? 'NPM');
+            $lines[] = "✅ INSTALLED {$pmName} PACKAGES:";
+            if (! empty($addedNpmPackages['dependencies'])) {
+                $lines[] = '  Dependencies:';
                 foreach ($addedNpmPackages['dependencies'] as $package) {
                     $lines[] = "    • {$package}";
                 }
             }
-            if (!empty($addedNpmPackages['devDependencies'])) {
-                $lines[] = "  Dev Dependencies:";
+            if (! empty($addedNpmPackages['devDependencies'])) {
+                $lines[] = '  Dev Dependencies:';
                 foreach ($addedNpmPackages['devDependencies'] as $package) {
                     $lines[] = "    • {$package}";
                 }
             }
-            $lines[] = "";
-            $lines[] = "⚡ Next step: Run '{$packageManager} install' to install the packages";
-            $lines[] = "";
+            $lines[] = '';
 
             // Add pnpm recommendation if using npm
             if ($packageManager === 'npm') {
-                $lines[] = "💡 TIP: Consider using pnpm instead of npm for local development:";
-                $lines[] = "  - Faster installs and smaller disk usage";
-                $lines[] = "  - Better monorepo support";
-                $lines[] = "  - Run: npm install -g pnpm && pnpm install";
-                $lines[] = "";
-                $lines[] = "⚠️  NOTE: If deploying with Laravel Forge, it expects npm by default.";
-                $lines[] = "   You may need to configure Forge to use pnpm or keep npm for production.";
+                $lines[] = '💡 TIP: Consider using pnpm instead of npm for local development:';
+                $lines[] = '  - Faster installs and smaller disk usage';
+                $lines[] = '  - Better monorepo support';
+                $lines[] = '  - Run: npm install -g pnpm';
+                $lines[] = '';
+                $lines[] = '⚠️  NOTE: If deploying with Laravel Forge, it expects npm by default.';
+                $lines[] = '   You may need to configure Forge to use pnpm or keep npm for production.';
             } elseif ($packageManager === 'pnpm') {
                 $lines[] = "✅ You're using pnpm - excellent choice for local development!";
-                $lines[] = "";
-                $lines[] = "⚠️  NOTE: If deploying with Laravel Forge, it expects npm by default.";
-                $lines[] = "   You may need to configure Forge to use pnpm or switch to npm for production.";
+                $lines[] = '';
+                $lines[] = '⚠️  NOTE: If deploying with Laravel Forge, it expects npm by default.';
+                $lines[] = '   You may need to configure Forge to use pnpm or switch to npm for production.';
             }
         }
 
