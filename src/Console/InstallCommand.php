@@ -27,7 +27,8 @@ class InstallCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'optimize-mcp:install';
+    protected $signature = 'optimize-mcp:install
+                            {--editors=* : Specify editors to configure (cursor,claude_code,vscode,phpstorm)}';
 
     /**
      * The console command description.
@@ -109,7 +110,25 @@ class InstallCommand extends Command
 
     protected function collectInstallationPreferences(CodeEnvironmentsDetector $codeEnvironmentsDetector): void
     {
-        $this->selectedTargetMcpClients = $this->selectTargetMcpClients($codeEnvironmentsDetector);
+        // Check for --editors option
+        if ($this->option('editors')) {
+            $this->selectedTargetMcpClients = $this->getEditorsFromOption($codeEnvironmentsDetector);
+        } else {
+            $this->selectedTargetMcpClients = $this->selectTargetMcpClients($codeEnvironmentsDetector);
+        }
+    }
+
+    protected function getEditorsFromOption(CodeEnvironmentsDetector $codeEnvironmentsDetector): Collection
+    {
+        $requestedEditors = $this->option('editors');
+        $allEnvironments = $codeEnvironmentsDetector->getCodeEnvironments();
+
+        return collect($requestedEditors)
+            ->map(function ($editorName) use ($allEnvironments) {
+                return $allEnvironments->first(fn ($env) => $env->name() === $editorName);
+            })
+            ->filter()
+            ->values();
     }
 
     /**
@@ -207,28 +226,39 @@ class InstallCommand extends Command
         }
 
         $this->newLine();
-        $this->components->info('Showing editor selection prompt...');
+
+        // Test if prompts work at all
+        $this->components->info('About to show multiselect prompt. Use SPACE to select/deselect, ENTER to confirm.');
         $this->components->info('Options: '.json_encode($options->toArray()));
         $this->components->info('Detected defaults: '.json_encode($detectedDefaults));
         $this->components->info('Config defaults: '.json_encode($defaults));
 
         $defaultsToUse = $defaults === [] ? $detectedDefaults : $defaults;
         $this->components->info('Using defaults: '.json_encode($defaultsToUse));
+        $this->newLine(2);
 
-        $selectedCodeEnvironments = collect(multiselect(
-            label: sprintf('Which code editors do you use to work on %s?', $this->projectName),
-            options: $options->toArray(),
-            default: $defaultsToUse,
-            scroll: $options->count(),
-            required: true,
-            hint: $defaults === [] || $detectedDefaults === [] ? '' : sprintf('Auto-detected %s for you',
-                Arr::join(array_map(function ($className) use ($availableEnvironments) {
-                    $env = $availableEnvironments->first(fn ($env): bool => $env->name() === $className);
+        try {
+            $selectedCodeEnvironments = collect(multiselect(
+                label: sprintf('Which code editors do you use to work on %s?', $this->projectName),
+                options: $options->toArray(),
+                default: $defaultsToUse,
+                scroll: $options->count(),
+                required: true,
+                hint: $defaults === [] || $detectedDefaults === [] ? '' : sprintf('Auto-detected %s for you',
+                    Arr::join(array_map(function ($className) use ($availableEnvironments) {
+                        $env = $availableEnvironments->first(fn ($env): bool => $env->name() === $className);
 
-                    return $env->displayName();
-                }, $detectedDefaults), ', ', ' & ')
-            )
-        ))->sort();
+                        return $env->displayName();
+                    }, $detectedDefaults), ', ', ' & ')
+                )
+            ))->sort();
+
+            $this->components->info('Selected: '.json_encode($selectedCodeEnvironments->toArray()));
+        } catch (\Exception $e) {
+            $this->components->error('Error in multiselect: '.$e->getMessage());
+            $this->components->error('Stack trace: '.$e->getTraceAsString());
+            throw $e;
+        }
 
         return $selectedCodeEnvironments->map(
             fn (string $name) => $availableEnvironments->first(fn ($env): bool => $env->name() === $name),
