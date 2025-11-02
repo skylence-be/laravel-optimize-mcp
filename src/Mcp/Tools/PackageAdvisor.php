@@ -152,7 +152,7 @@ final class PackageAdvisor extends Tool
             // Essential packages - start here
             'laravel/pint' => 'Code style fixer using Laravel conventions',
             'laravel/boost' => 'Essential performance optimizer - preloads routes/config for 2-5x faster boot time',
-            'nunomaduro/larastan' => 'Static analysis tool for Laravel',
+            'larastan/larastan' => 'Static analysis tool for Laravel (PHPStan for Laravel)',
             'barryvdh/laravel-ide-helper' => 'Generate IDE helper files for better autocomplete',
             'nunomaduro/essentials' => 'Essential commands for Laravel - generates pint.json, rector.php configs instantly',
 

@@ -166,7 +166,7 @@ Analyze your Laravel project and get comprehensive package recommendations to im
 {
   "total_packages": 15,
   "recommendations": {
-    "nunomaduro/larastan": "Static analysis tool for Laravel",
+    "larastan/larastan": "Static analysis tool for Laravel",
     "barryvdh/laravel-ide-helper": "Generate IDE helper files",
     "laravel/scout": "Full-text search for Eloquent models"
   },
