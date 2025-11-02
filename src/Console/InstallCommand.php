@@ -9,149 +9,88 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Skylence\OptimizeMcp\Contracts\McpClient;
 use Skylence\OptimizeMcp\Install\CodeEnvironment\CodeEnvironment;
 use Skylence\OptimizeMcp\Install\CodeEnvironmentsDetector;
+use Skylence\OptimizeMcp\Support\Config;
+use Laravel\Prompts\Concerns\Colors;
+use Laravel\Prompts\Terminal;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 use function Laravel\Prompts\intro;
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\note;
-use function Laravel\Prompts\outro;
+use function Laravel\Prompts\confirm;
 
 #[AsCommand('optimize-mcp:install', 'Install Laravel Optimize MCP')]
 class InstallCommand extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'optimize-mcp:install
-                            {--editors=* : Specify editors to configure (cursor,claude_code,vscode,phpstorm)}';
+    use Colors;
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Install Laravel Optimize MCP';
+    private CodeEnvironmentsDetector $codeEnvironmentsDetector;
+
+    private Terminal $terminal;
 
     /** @var Collection<int, McpClient> */
-    private Collection $selectedTargetMcpClients;
+    private Collection $selectedTargetMcpClient;
+
+    /** @var Collection<int, string> */
+    private Collection $selectedFeatures;
+
+    private string $projectName;
 
     /** @var array<non-empty-string> */
     private array $systemInstalledCodeEnvironments = [];
 
     private array $projectInstalledCodeEnvironments = [];
 
-    private string $projectName;
-
     private string $greenTick;
 
     private string $redCross;
 
-    /**
-     * Execute the console command.
-     */
-    public function handle(CodeEnvironmentsDetector $codeEnvironmentsDetector): int
+    public function __construct(protected Config $config)
     {
-        $this->bootstrap($codeEnvironmentsDetector);
-        $this->displayHeader();
-        $this->publishConfiguration();
-        $this->discoverEnvironment($codeEnvironmentsDetector);
-        $this->collectInstallationPreferences($codeEnvironmentsDetector);
-        $this->installMcpServerConfig();
-        $this->displayOutro();
-
-        return self::SUCCESS;
+        parent::__construct();
     }
 
-    protected function bootstrap(CodeEnvironmentsDetector $codeEnvironmentsDetector): void
+    public function handle(CodeEnvironmentsDetector $codeEnvironmentsDetector, Terminal $terminal): void
     {
-        $this->greenTick = "\033[32m✓\033[0m";
-        $this->redCross = "\033[31m✗\033[0m";
-        $this->selectedTargetMcpClients = collect();
+        $this->bootstrap($codeEnvironmentsDetector, $terminal);
+
+        $this->displayHeader();
+        $this->discoverEnvironment();
+        $this->collectInstallationPreferences();
+        $this->performInstallation();
+        $this->outro();
+    }
+
+    protected function bootstrap(CodeEnvironmentsDetector $codeEnvironmentsDetector, Terminal $terminal): void
+    {
+        $this->codeEnvironmentsDetector = $codeEnvironmentsDetector;
+        $this->terminal = $terminal;
+
+        $this->terminal->initDimensions();
+
+        $this->greenTick = $this->green('✓');
+        $this->redCross = $this->red('✗');
+
+        $this->selectedTargetMcpClient = collect();
+
         $this->projectName = config('app.name');
     }
 
-    protected function discoverEnvironment(CodeEnvironmentsDetector $codeEnvironmentsDetector): void
-    {
-        $this->newLine();
-        $this->components->info('Detecting installed code editors...');
-
-        try {
-            $this->systemInstalledCodeEnvironments = $codeEnvironmentsDetector->discoverSystemInstalledCodeEnvironments();
-            $this->components->info('System detection complete');
-        } catch (\Exception $e) {
-            $this->components->warn('System detection failed: '.$e->getMessage());
-            $this->systemInstalledCodeEnvironments = [];
-        }
-
-        try {
-            $this->projectInstalledCodeEnvironments = $codeEnvironmentsDetector->discoverProjectInstalledCodeEnvironments(base_path());
-            $this->components->info('Project detection complete');
-        } catch (\Exception $e) {
-            $this->components->warn('Project detection failed: '.$e->getMessage());
-            $this->projectInstalledCodeEnvironments = [];
-        }
-
-        $detected = array_unique(array_merge(
-            $this->systemInstalledCodeEnvironments,
-            $this->projectInstalledCodeEnvironments
-        ));
-
-        if (! empty($detected)) {
-            $this->components->info('Detected: '.implode(', ', $detected));
-        } else {
-            $this->components->info('No editors auto-detected');
-        }
-    }
-
-    protected function collectInstallationPreferences(CodeEnvironmentsDetector $codeEnvironmentsDetector): void
-    {
-        // Check for --editors option
-        if ($this->option('editors')) {
-            $this->selectedTargetMcpClients = $this->getEditorsFromOption($codeEnvironmentsDetector);
-        } else {
-            $this->selectedTargetMcpClients = $this->selectTargetMcpClients($codeEnvironmentsDetector);
-        }
-    }
-
-    protected function getEditorsFromOption(CodeEnvironmentsDetector $codeEnvironmentsDetector): Collection
-    {
-        $requestedEditors = $this->option('editors');
-        $allEnvironments = $codeEnvironmentsDetector->getCodeEnvironments();
-
-        return collect($requestedEditors)
-            ->map(function ($editorName) use ($allEnvironments) {
-                return $allEnvironments->first(fn ($env) => $env->name() === $editorName);
-            })
-            ->filter()
-            ->values();
-    }
-
-    /**
-     * Display the installation header.
-     */
     protected function displayHeader(): void
     {
-        intro('Laravel Optimize MCP Installation');
-
-        note($this->getLogo());
-
-        $this->newLine();
-        $this->components->info('Welcome to Laravel Optimize MCP!');
-        $this->components->info('This package provides optimization tools for AI-assisted development.');
-        $this->newLine();
+        note($this->logo());
+        intro('Laravel Optimize MCP :: Install');
+        note("Let's configure {$this->bgYellow($this->black($this->bold($this->projectName)))} with MCP");
     }
 
-    /**
-     * Get the package logo.
-     */
-    protected function getLogo(): string
+    protected function logo(): string
     {
-        return <<<'LOGO'
+        return
+         <<<'HEADER'
          ██████╗ ██████╗ ████████╗██╗███╗   ███╗██╗███████╗███████╗
         ██╔═══██╗██╔══██╗╚══██╔══╝██║████╗ ████║██║╚══███╔╝██╔════╝
         ██║   ██║██████╔╝   ██║   ██║██╔████╔██║██║  ███╔╝ █████╗
@@ -165,45 +104,94 @@ class InstallCommand extends Command
         ██║╚██╔╝██║██║     ██╔═══╝
         ██║ ╚═╝ ██║╚██████╗██║
         ╚═╝     ╚═╝ ╚═════╝╚═╝
-        LOGO;
+        HEADER;
+    }
+
+    protected function discoverEnvironment(): void
+    {
+        $this->systemInstalledCodeEnvironments = $this->codeEnvironmentsDetector->discoverSystemInstalledCodeEnvironments();
+        $this->projectInstalledCodeEnvironments = $this->codeEnvironmentsDetector->discoverProjectInstalledCodeEnvironments(base_path());
+    }
+
+    protected function collectInstallationPreferences(): void
+    {
+        $this->selectedFeatures = $this->selectFeatures();
+        $this->selectedTargetMcpClient = $this->selectTargetMcpClients();
+    }
+
+    protected function performInstallation(): void
+    {
+        if ($this->selectedTargetMcpClient->isNotEmpty()) {
+            $this->installMcpServerConfig();
+        }
     }
 
     /**
-     * Publish the package configuration.
+     * @return Collection<int, string>
      */
-    protected function publishConfiguration(): void
+    protected function selectFeatures(): Collection
     {
-        $this->components->task('Publishing configuration', function () {
-            $this->callSilent('vendor:publish', [
-                '--tag' => 'optimize-mcp-config',
-                '--force' => true,
-            ]);
-        });
+        $features = collect(['mcp_server']);
 
-        $this->newLine();
-        $this->components->info('Configuration published to config/optimize-mcp.php');
+        if ($this->isSailInstalled() && ($this->isRunningInsideSail() || $this->shouldConfigureSail())) {
+            $features->push('sail');
+        }
+
+        return $features;
+    }
+
+    protected function shouldConfigureSail(): bool
+    {
+        return confirm(
+            label: 'Laravel Sail detected. Configure Optimize MCP to use Sail?',
+            default: $this->config->getSail(),
+            hint: 'This will configure the MCP server to run through Sail. Note: Sail must be running to use Optimize MCP',
+        );
     }
 
     /**
      * @return Collection<int, CodeEnvironment>
      */
-    protected function selectTargetMcpClients(CodeEnvironmentsDetector $codeEnvironmentsDetector): Collection
+    protected function selectTargetMcpClients(): Collection
     {
-        $this->components->info('Preparing editor selection...');
+        return $this->selectCodeEnvironments(
+            McpClient::class,
+            sprintf('Which code editors do you use to work on %s?', $this->projectName),
+            $this->config->getEditors(),
+        );
+    }
 
-        $allEnvironments = $codeEnvironmentsDetector->getCodeEnvironments();
-        $this->components->info('Loaded '.count($allEnvironments).' code environments');
+    /**
+     * Get configuration settings for contract-specific selection behavior.
+     *
+     * @return array{required: bool, displayMethod: string}
+     */
+    protected function getSelectionConfig(string $contractClass): array
+    {
+        return match ($contractClass) {
+            McpClient::class => ['required' => true, 'displayMethod' => 'displayName'],
+            default => throw new InvalidArgumentException("Unsupported contract class: {$contractClass}"),
+        };
+    }
 
-        $availableEnvironments = $allEnvironments->filter(fn (CodeEnvironment $environment): bool => $environment instanceof McpClient);
-        $this->components->info('Found '.count($availableEnvironments).' MCP clients');
+    /**
+     * @param  array<int, string>  $defaults
+     * @return Collection<int, CodeEnvironment>
+     */
+    protected function selectCodeEnvironments(string $contractClass, string $label, array $defaults): Collection
+    {
+        $allEnvironments = $this->codeEnvironmentsDetector->getCodeEnvironments();
+        $config = $this->getSelectionConfig($contractClass);
+
+        $availableEnvironments = $allEnvironments->filter(fn (CodeEnvironment $environment): bool => $environment instanceof $contractClass);
 
         if ($availableEnvironments->isEmpty()) {
-            $this->components->warn('No MCP clients available');
             return collect();
         }
 
-        $options = $availableEnvironments->mapWithKeys(function (CodeEnvironment $environment): array {
-            $displayText = $environment->displayName();
+        $options = $availableEnvironments->mapWithKeys(function (CodeEnvironment $environment) use ($config): array {
+            $displayMethod = $config['displayMethod'];
+            $displayText = $environment->{$displayMethod}();
 
             return [$environment->name() => $displayText];
         })->sort();
@@ -213,7 +201,6 @@ class InstallCommand extends Command
             $this->systemInstalledCodeEnvironments
         ));
 
-        $defaults = config('optimize-mcp.installation.editors', []);
         $detectedDefaults = [];
 
         if ($defaults === []) {
@@ -225,59 +212,65 @@ class InstallCommand extends Command
             }
         }
 
-        $this->newLine();
+        $selectedCodeEnvironments = collect(multiselect(
+            label: $label,
+            options: $options->toArray(),
+            default: $defaults === [] ? $detectedDefaults : $defaults,
+            scroll: $options->count(),
+            required: $config['required'],
+            hint: $defaults === [] || $detectedDefaults === [] ? '' : sprintf('Auto-detected %s for you',
+                Arr::join(array_map(function ($className) use ($availableEnvironments, $config) {
+                    $env = $availableEnvironments->first(fn ($env): bool => $env->name() === $className);
+                    $displayMethod = $config['displayMethod'];
 
-        // Test if prompts work at all
-        $this->components->info('About to show multiselect prompt. Use SPACE to select/deselect, ENTER to confirm.');
-        $this->components->info('Options: '.json_encode($options->toArray()));
-        $this->components->info('Detected defaults: '.json_encode($detectedDefaults));
-        $this->components->info('Config defaults: '.json_encode($defaults));
-
-        $defaultsToUse = $defaults === [] ? $detectedDefaults : $defaults;
-        $this->components->info('Using defaults: '.json_encode($defaultsToUse));
-        $this->newLine(2);
-
-        try {
-            $selectedCodeEnvironments = collect(multiselect(
-                label: sprintf('Which code editors do you use to work on %s?', $this->projectName),
-                options: $options->toArray(),
-                default: $defaultsToUse,
-                scroll: $options->count(),
-                required: true,
-                hint: $defaults === [] || $detectedDefaults === [] ? '' : sprintf('Auto-detected %s for you',
-                    Arr::join(array_map(function ($className) use ($availableEnvironments) {
-                        $env = $availableEnvironments->first(fn ($env): bool => $env->name() === $className);
-
-                        return $env->displayName();
-                    }, $detectedDefaults), ', ', ' & ')
-                )
-            ))->sort();
-
-            $this->components->info('Selected: '.json_encode($selectedCodeEnvironments->toArray()));
-        } catch (\Exception $e) {
-            $this->components->error('Error in multiselect: '.$e->getMessage());
-            $this->components->error('Stack trace: '.$e->getTraceAsString());
-            throw $e;
-        }
+                    return $env->{$displayMethod}();
+                }, $detectedDefaults), ', ', ' & ')
+            )
+        ))->sort();
 
         return $selectedCodeEnvironments->map(
             fn (string $name) => $availableEnvironments->first(fn ($env): bool => $env->name() === $name),
         )->filter()->values();
     }
 
+    protected function shouldUseSail(): bool
+    {
+        return $this->selectedFeatures->contains('sail');
+    }
+
+    protected function isSailInstalled(): bool
+    {
+        return file_exists(base_path('vendor/bin/sail')) &&
+               (file_exists(base_path('docker-compose.yml')) || file_exists(base_path('compose.yaml')));
+    }
+
+    protected function isRunningInsideSail(): bool
+    {
+        return get_current_user() === 'sail' || getenv('LARAVEL_SAIL') === '1';
+    }
+
     protected function buildMcpCommand(McpClient $mcpClient): array
     {
+        if ($this->shouldUseSail()) {
+            return ['laravel-optimize-mcp', './vendor/bin/sail', 'artisan', 'optimize-mcp:mcp'];
+        }
+
+        $inWsl = $this->isRunningInWsl();
+
         return array_filter([
             'laravel-optimize-mcp',
-            $mcpClient->getPhpPath(),
-            $mcpClient->getArtisanPath(),
+            $inWsl ? 'wsl' : false,
+            $mcpClient->getPhpPath($inWsl),
+            $mcpClient->getArtisanPath($inWsl),
             'optimize-mcp:mcp',
         ]);
     }
 
     protected function installMcpServerConfig(): void
     {
-        if ($this->selectedTargetMcpClients->isEmpty()) {
+        if ($this->selectedTargetMcpClient->isEmpty()) {
+            $this->info('No editors selected for MCP installation.');
+
             return;
         }
 
@@ -290,13 +283,13 @@ class InstallCommand extends Command
         $failed = [];
         $longestIdeName = max(
             1,
-            ...$this->selectedTargetMcpClients->map(
+            ...$this->selectedTargetMcpClient->map(
                 fn (McpClient $mcpClient) => Str::length($mcpClient->mcpClientName())
             )->toArray()
         );
 
         /** @var McpClient $mcpClient */
-        foreach ($this->selectedTargetMcpClients as $mcpClient) {
+        foreach ($this->selectedTargetMcpClient as $mcpClient) {
             $ideName = $mcpClient->mcpClientName();
             $ideDisplay = str_pad((string) $ideName, $longestIdeName);
             $this->output->write("  {$ideDisplay}... ");
@@ -332,83 +325,43 @@ class InstallCommand extends Command
             }
         }
 
-        // Save preferences to config
-        $this->saveInstallationPreferences();
+        $this->config->setSail(
+            $this->shouldUseSail()
+        );
+
+        $this->config->setEditors(
+            $this->selectedTargetMcpClient->map(fn (McpClient $mcpClient): string => $mcpClient->name())->values()->toArray()
+        );
     }
 
-    protected function saveInstallationPreferences(): void
+    protected function outro(): void
     {
-        $configPath = config_path('optimize-mcp.php');
+        $label = 'https://github.com/skylence-be/laravel-optimize-mcp';
 
-        if (! file_exists($configPath)) {
-            return;
-        }
-
-        $content = file_get_contents($configPath);
-
-        $editors = $this->selectedTargetMcpClients
-            ->map(fn (McpClient $mcpClient): string => $mcpClient->name())
-            ->values()
+        $ideNames = $this->selectedTargetMcpClient->map(fn (McpClient $mcpClient): string => $mcpClient->mcpClientName())
             ->toArray();
 
-        $editorsArrayString = "[\n        '".implode("',\n        '", $editors)."',\n    ]";
+        $text = 'Installation complete! 🚀 Documentation: ';
+        $paddingLength = (int) (floor(($this->terminal->cols() - mb_strlen($text.$label)) / 2)) - 2;
 
-        // Replace the editors array in the config file
-        $pattern = "/'editors'\s*=>\s*\[[^\]]*\]/";
-        $replacement = "'editors' => ".$editorsArrayString;
+        $this->output->write([
+            "\033[42m\033[2K".str_repeat(' ', max(0, $paddingLength)),
+            $this->black($this->bold($text.$this->hyperlink($label, $label))).$this->reset(PHP_EOL).$this->reset(PHP_EOL),
+        ]);
+    }
 
-        $newContent = preg_replace($pattern, $replacement, $content);
-
-        if ($newContent !== null && $newContent !== $content) {
-            file_put_contents($configPath, $newContent);
-        }
+    protected function hyperlink(string $label, string $url): string
+    {
+        return "\033]8;;{$url}\007{$label}\033]8;;\033\\";
     }
 
     /**
-     * Display the installation outro.
+     * Are we running inside a Windows Subsystem for Linux (WSL) environment?
+     * This differentiates between a regular Linux installation and a WSL.
      */
-    protected function displayOutro(): void
+    private function isRunningInWsl(): bool
     {
-        $this->newLine();
-
-        outro('Installation complete! 🚀');
-
-        $this->newLine();
-        $this->components->twoColumnDetail(
-            '<fg=green>MCP Server Configuration:</>',
-            ''
-        );
-
-        if ($this->selectedTargetMcpClients->isNotEmpty()) {
-            $installedEditors = $this->selectedTargetMcpClients
-                ->map(fn (McpClient $client) => $client->displayName())
-                ->toArray();
-
-            $this->components->bulletList([
-                'MCP server configured for: '.implode(', ', $installedEditors),
-                'Server key: laravel-optimize-mcp',
-                'Command: php artisan optimize-mcp:mcp',
-            ]);
-        } else {
-            $this->components->bulletList([
-                'PHP stdio server (local): Use key "laravel-optimize-mcp"',
-                'HTTP server: Use key "http-laravel-optimize" in .mcp.json',
-            ]);
-        }
-
-        $this->newLine();
-        $this->components->twoColumnDetail(
-            '<fg=green>Next steps:</>',
-            ''
-        );
-
-        $this->components->bulletList([
-            'Configure HTTP endpoint: config/optimize-mcp.php',
-            'Enable/disable tools in the config file',
-            'Run installation again to add more editors',
-        ]);
-
-        $this->newLine();
-        $this->components->info('For more information, visit: https://github.com/skylence-be/laravel-optimize-mcp');
+        // Check for WSL-specific environment variables.
+        return ! empty(getenv('WSL_DISTRO_NAME')) || ! empty(getenv('IS_WSL'));
     }
 }
