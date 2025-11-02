@@ -10,6 +10,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
+use Skylence\OptimizeMcp\Models\DatabaseTableSizeLog;
 
 #[IsReadOnly]
 final class DatabaseSizeInspector extends Tool
@@ -169,6 +170,98 @@ final class DatabaseSizeInspector extends Tool
             }
         }
 
+        // Growth insights (if monitoring is enabled)
+        if (config('optimize-mcp.database_monitoring.enabled', false)) {
+            $growthInsights = $this->getGrowthInsights($data['database'] ?? null);
+            if (!empty($growthInsights)) {
+                $lines[] = "";
+                $lines[] = "📈 Growth Trends (from monitoring):";
+                foreach ($growthInsights as $insight) {
+                    $lines[] = $insight;
+                }
+            }
+        }
+
         return implode("\n", $lines);
+    }
+
+    /**
+     * Get growth insights from historical data.
+     */
+    private function getGrowthInsights(?string $database): array
+    {
+        if (!$database) {
+            return [];
+        }
+
+        $insights = [];
+
+        // Get fastest growing tables (by percentage)
+        $fastestGrowing = DatabaseTableSizeLog::query()
+            ->whereHas('databaseSizeLog', function ($query) use ($database) {
+                $query->where('database_name', $database);
+            })
+            ->whereNotNull('growth_percentage')
+            ->where('growth_percentage', '>', 0)
+            ->orderBy('growth_percentage', 'desc')
+            ->limit(3)
+            ->get();
+
+        if ($fastestGrowing->isNotEmpty()) {
+            $insights[] = "  🚀 Fastest Growing Tables:";
+            foreach ($fastestGrowing as $table) {
+                $growthSign = $table->growth_percentage >= 0 ? '+' : '';
+                $insights[] = "     • {$table->table_name}: {$growthSign}{$table->growth_percentage}% ({$growthSign}{$table->growth_mb} MB)";
+                if ($table->row_growth && $table->row_growth > 0) {
+                    $rowPercentage = $table->row_growth_percentage !== null
+                        ? "{$growthSign}{$table->row_growth_percentage}%"
+                        : 'from 0 rows';
+                    $insights[] = "       Rows: {$growthSign}" . number_format($table->row_growth) . " ({$rowPercentage})";
+                }
+            }
+        }
+
+        // Get tables with most absolute growth (by MB)
+        $largestGrowth = DatabaseTableSizeLog::query()
+            ->whereHas('databaseSizeLog', function ($query) use ($database) {
+                $query->where('database_name', $database);
+            })
+            ->whereNotNull('growth_mb')
+            ->where('growth_mb', '>', 0)
+            ->orderBy('growth_mb', 'desc')
+            ->limit(3)
+            ->get();
+
+        if ($largestGrowth->isNotEmpty() && $largestGrowth->first()->growth_mb > 0.1) {
+            $insights[] = "";
+            $insights[] = "  📊 Largest Absolute Growth:";
+            foreach ($largestGrowth as $table) {
+                $growthSign = $table->growth_mb >= 0 ? '+' : '';
+                $insights[] = "     • {$table->table_name}: {$growthSign}{$table->growth_mb} MB";
+            }
+        }
+
+        // Add recommendations based on growth
+        if ($fastestGrowing->isNotEmpty()) {
+            $insights[] = "";
+            $insights[] = "  💡 Recommendations:";
+
+            $topGrowing = $fastestGrowing->first();
+            if ($topGrowing->growth_percentage > 50) {
+                $insights[] = "     • Consider archiving old data in {$topGrowing->table_name}";
+            }
+
+            // Check if it's a known table type
+            $tableName = $topGrowing->table_name;
+            if (str_contains($tableName, 'telescope')) {
+                $insights[] = "     • Run: php artisan telescope:prune to clean old entries";
+            } elseif (str_contains($tableName, 'log')) {
+                $insights[] = "     • Implement log rotation or archival for {$tableName}";
+            } elseif (str_contains($tableName, 'cache') || str_contains($tableName, 'session')) {
+                $insights[] = "     • Review cache/session retention policies";
+            }
+        }
+
+        return $insights;
     }
 }
