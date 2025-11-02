@@ -247,15 +247,6 @@ final class PackageAdvisor extends Tool
                     ];
                 }
 
-                // Check for Telescope without optimization packages
-                if (in_array('laravel/telescope', $packages) && ! in_array('binarcode/laravel-telescope-flusher', $packages)) {
-                    $patterns[] = [
-                        'package' => 'laravel/telescope',
-                        'issue' => 'Missing Optimization Package',
-                        'recommendation' => 'Install binarcode/laravel-telescope-flusher for better pruning performance to prevent database bloat',
-                    ];
-                }
-
                 // Check for Telescope without MCP integration
                 if (in_array('laravel/telescope', $packages) && ! in_array('skylence/laravel-telescope-mcp', $packages)) {
                     $patterns[] = [
