@@ -7,6 +7,7 @@ namespace Skylence\OptimizeMcp;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Skylence\OptimizeMcp\Console\InstallCommand;
+use Skylence\OptimizeMcp\Console\McpCommand;
 
 class OptimizeMcpServiceProvider extends ServiceProvider
 {
@@ -48,12 +49,9 @@ class OptimizeMcpServiceProvider extends ServiceProvider
             ->group(__DIR__.'/../routes/http.php');
 
         if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__.'/../config/optimize-mcp.php' => config_path('optimize-mcp.php'),
-            ], 'optimize-mcp-config');
-
             $this->commands([
                 InstallCommand::class,
+                McpCommand::class,
             ]);
         }
     }

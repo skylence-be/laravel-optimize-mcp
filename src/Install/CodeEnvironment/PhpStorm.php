@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Skylence\OptimizeMcp\Install\CodeEnvironment;
 
 use Skylence\OptimizeMcp\Contracts\McpClient;
-use Skylence\OptimizeMcp\Install\Enums\McpInstallationStrategy;
 use Skylence\OptimizeMcp\Install\Enums\Platform;
 
 class PhpStorm extends CodeEnvironment implements McpClient
 {
+    public bool $useAbsolutePathForMcp = true;
+
     public function name(): string
     {
         return 'phpstorm';
@@ -28,14 +29,17 @@ class PhpStorm extends CodeEnvironment implements McpClient
             ],
             Platform::Linux => [
                 'paths' => [
-                    '~/.local/share/JetBrains/PhpStorm',
                     '/opt/phpstorm',
+                    '/opt/PhpStorm*',
+                    '/usr/local/bin/phpstorm',
+                    '~/.local/share/JetBrains/Toolbox/apps/PhpStorm/ch-*',
                 ],
             ],
             Platform::Windows => [
                 'paths' => [
-                    '%ProgramFiles%\\JetBrains\\PhpStorm',
-                    '%LOCALAPPDATA%\\JetBrains\\PhpStorm',
+                    '%ProgramFiles%\\JetBrains\\PhpStorm*',
+                    '%LOCALAPPDATA%\\JetBrains\\Toolbox\\apps\\PhpStorm\\ch-*',
+                    '%LOCALAPPDATA%\\Programs\\PhpStorm',
                 ],
             ],
         };
@@ -44,17 +48,17 @@ class PhpStorm extends CodeEnvironment implements McpClient
     public function projectDetectionConfig(): array
     {
         return [
-            'paths' => ['.idea'],
+            'paths' => ['.idea', '.junie'],
         ];
     }
 
-    public function mcpInstallationStrategy(): McpInstallationStrategy
+    public function mcpClientName(): string
     {
-        return McpInstallationStrategy::SHELL;
+        return 'Junie';
     }
 
-    public function shellMcpCommand(): string
+    public function mcpConfigPath(): string
     {
-        return 'mcp add -s local -t stdio {key} {command} {args}';
+        return '.junie/mcp/mcp.json';
     }
 }
