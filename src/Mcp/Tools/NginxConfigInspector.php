@@ -267,6 +267,9 @@ final class NginxConfigInspector extends Tool
         // Security headers - check if they're commonly set in http block
         $this->checkSecurityHeaders($content, $analysis);
 
+        // Rate limiting and spam prevention
+        $this->checkRateLimiting($content, $analysis);
+
         // Logging
         if (preg_match('/access_log\s+off;/i', $content)) {
             $analysis['issues'][] = [
@@ -346,6 +349,138 @@ final class NginxConfigInspector extends Tool
                 'fix' => 'Add server_tokens off; to hide nginx version',
             ];
         }
+    }
+
+    /**
+     * Check for rate limiting and spam prevention mechanisms.
+     */
+    protected function checkRateLimiting(string $content, array &$analysis): void
+    {
+        $rateLimitingChecks = [
+            'has_rate_limiting' => false,
+            'has_conn_limiting' => false,
+            'has_bot_blocking' => false,
+            'has_ip_blacklist' => false,
+            'has_geo_blocking' => false,
+        ];
+
+        // Check for rate limiting zones
+        if (preg_match('/limit_req_zone/i', $content)) {
+            $rateLimitingChecks['has_rate_limiting'] = true;
+            $analysis['good_practices'][] = [
+                'category' => 'security',
+                'message' => 'Rate limiting configured',
+                'details' => 'Protects against brute-force and DDoS attacks',
+            ];
+
+            // Count rate limit zones
+            preg_match_all('/limit_req_zone\s+(\$\w+)\s+zone=(\w+):(\d+[kmg]?)\s+rate=(\d+r\/[sm]);/i', $content, $matches);
+            if (!empty($matches[0])) {
+                $analysis['security'][] = [
+                    'type' => 'rate_limiting',
+                    'zones' => count($matches[0]),
+                    'configured' => true,
+                ];
+            }
+        } else {
+            $analysis['issues'][] = [
+                'severity' => 'warning',
+                'category' => 'security',
+                'message' => 'No rate limiting configured',
+                'fix' => 'Add limit_req_zone directives to prevent brute-force and DDoS attacks',
+                'example' => 'limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;',
+            ];
+        }
+
+        // Check for connection limiting
+        if (preg_match('/limit_conn_zone/i', $content)) {
+            $rateLimitingChecks['has_conn_limiting'] = true;
+            $analysis['good_practices'][] = [
+                'category' => 'security',
+                'message' => 'Connection limiting configured',
+                'details' => 'Limits concurrent connections per IP',
+            ];
+        } else {
+            $analysis['recommendations'][] = [
+                'category' => 'security',
+                'message' => 'No connection limiting configured',
+                'fix' => 'Add limit_conn_zone to limit concurrent connections per IP',
+                'example' => 'limit_conn_zone $binary_remote_addr zone=addr:10m;',
+            ];
+        }
+
+        // Check for bot blocking
+        $botBlockingPatterns = [
+            '/if\s*\(\$http_user_agent\s*~\*\s*["\'].*bot/i',
+            '/map.*\$http_user_agent.*\$bad_bot/i',
+            '/map.*\$http_user_agent.*\$limit_bot/i',
+        ];
+
+        foreach ($botBlockingPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                $rateLimitingChecks['has_bot_blocking'] = true;
+                break;
+            }
+        }
+
+        if ($rateLimitingChecks['has_bot_blocking']) {
+            $analysis['good_practices'][] = [
+                'category' => 'security',
+                'message' => 'Bot blocking rules configured',
+                'details' => 'Filters malicious bots and scrapers',
+            ];
+        } else {
+            $analysis['recommendations'][] = [
+                'category' => 'security',
+                'message' => 'No bot blocking rules detected',
+                'fix' => 'Add user-agent filtering to block malicious bots',
+                'benefit' => 'Reduces server load from malicious scrapers and bots',
+            ];
+        }
+
+        // Check for IP blocking/blacklisting
+        $ipBlockingPatterns = [
+            '/deny\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3};/i',
+            '/allow\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3};/i',
+            '/geo\s+\$\w+\s*\{/i',
+        ];
+
+        foreach ($ipBlockingPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                $rateLimitingChecks['has_ip_blacklist'] = true;
+                break;
+            }
+        }
+
+        if ($rateLimitingChecks['has_ip_blacklist']) {
+            $analysis['security'][] = [
+                'type' => 'ip_filtering',
+                'configured' => true,
+            ];
+        }
+
+        // Check for geographic blocking
+        if (preg_match('/geo\s+\$\w+\s*\{/i', $content)) {
+            $rateLimitingChecks['has_geo_blocking'] = true;
+            $analysis['security'][] = [
+                'type' => 'geo_blocking',
+                'configured' => true,
+            ];
+        }
+
+        // Summary recommendations if no security measures found
+        $protectionCount = array_filter($rateLimitingChecks);
+        if (count($protectionCount) === 0) {
+            $analysis['issues'][] = [
+                'severity' => 'warning',
+                'category' => 'security',
+                'message' => 'No spam prevention mechanisms detected',
+                'fix' => 'Implement rate limiting to protect against attacks',
+                'impact' => 'Server is vulnerable to brute-force, DDoS, and bot attacks',
+            ];
+        }
+
+        $analysis['spam_prevention'] = $rateLimitingChecks;
     }
 
     /**
