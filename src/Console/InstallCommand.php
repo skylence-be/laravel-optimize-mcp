@@ -181,44 +181,44 @@ class InstallCommand extends Command
      */
     protected function selectLlmGuidelines(): Collection
     {
-        $possibleFiles = [
-            'CLAUDE.md' => 'Claude Code / Claude.ai',
-            '.cursorrules' => 'Cursor IDE',
-            '.copilot-instructions.md' => 'GitHub Copilot',
-            '.aider.conf.yml' => 'Aider',
-            '.windsurf/rules.md' => 'Windsurf IDE',
+        // Map agent keys to their instruction file paths
+        $agentFiles = [
+            'claude_code' => 'CLAUDE.md',
+            'cursor' => '.cursorrules',
+            'copilot' => '.copilot-instructions.md',
+            'aider' => '.aider.conf.yml',
+            'windsurf' => '.windsurf/rules.md',
+        ];
+
+        // Human-readable agent names
+        $agentNames = [
+            'claude_code' => 'Claude Code',
+            'cursor' => 'Cursor',
+            'copilot' => 'GitHub Copilot',
+            'aider' => 'Aider',
+            'windsurf' => 'Windsurf',
         ];
 
         // Check which files exist for smart defaults
-        $existingFiles = [];
-        foreach ($possibleFiles as $file => $description) {
+        $existingAgents = [];
+        foreach ($agentFiles as $agent => $file) {
             if (file_exists(base_path($file))) {
-                $existingFiles[] = $file;
+                $existingAgents[] = $agent;
             }
         }
 
-        // If no existing files, ask if they want to add guidelines
-        if (empty($existingFiles)) {
-            $shouldAdd = confirm(
-                label: 'Add Optimize MCP guidelines to AI assistant instruction files?',
-                default: true,
-                hint: 'Helps AI assistants understand how to use the MCP tools'
-            );
-
-            if (!$shouldAdd) {
-                return collect();
-            }
-        }
+        $projectName = config('app.name', 'Laravel');
 
         $selected = multiselect(
-            label: 'Which AI assistants do you use?',
-            options: $possibleFiles,
-            default: $existingFiles,
+            label: "Which agents need Optimize MCP guidelines for {$projectName}?",
+            options: $agentNames,
+            default: $existingAgents,
             scroll: 5,
-            hint: 'Guidelines will be added to instruction files (creates new or appends to existing)'
+            hint: 'You can add or remove them later by running this command again'
         );
 
-        return collect($selected);
+        // Map selected agents back to file paths
+        return collect($selected)->map(fn($agent) => $agentFiles[$agent]);
     }
 
     protected function installGuidelines(): void
