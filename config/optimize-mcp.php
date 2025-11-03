@@ -27,6 +27,7 @@ return [
     'tools' => [
         'configuration-analyzer' => true,
         'database-size-inspector' => true,
+        'log-file-inspector' => true,
         'project-structure-analyzer' => false, // Disabled for HTTP
         'package-advisor' => false, // Disabled for HTTP
     ],

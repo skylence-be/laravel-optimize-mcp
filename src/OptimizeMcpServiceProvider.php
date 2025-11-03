@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Skylence\OptimizeMcp\Console\DatabaseSizeCommand;
 use Skylence\OptimizeMcp\Console\InstallCommand;
+use Skylence\OptimizeMcp\Console\LogSizeCommand;
 use Skylence\OptimizeMcp\Console\McpCommand;
 use Skylence\OptimizeMcp\Console\MonitorDatabaseSizeCommand;
 use Skylence\OptimizeMcp\Console\PruneDatabaseLogsCommand;
@@ -57,6 +58,7 @@ class OptimizeMcpServiceProvider extends ServiceProvider
             InstallCommand::class,
             McpCommand::class,
             DatabaseSizeCommand::class,
+            LogSizeCommand::class,
             MonitorDatabaseSizeCommand::class,
             PruneDatabaseLogsCommand::class,
         ]);
