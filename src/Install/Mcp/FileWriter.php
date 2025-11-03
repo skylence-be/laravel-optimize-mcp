@@ -50,6 +50,7 @@ class FileWriter
     public function addHttpServer(string $key, string $url, array $headers = []): self
     {
         $this->serversToAdd[$key] = collect([
+            'type' => "http",
             'url' => $url,
             'headers' => $headers,
         ])->filter()->toArray();
