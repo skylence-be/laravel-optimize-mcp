@@ -189,44 +189,33 @@ class InstallCommand extends Command
             '.windsurf/rules.md' => 'Windsurf IDE',
         ];
 
-        // Check which files exist
+        // Check which files exist for smart defaults
         $existingFiles = [];
         foreach ($possibleFiles as $file => $description) {
             if (file_exists(base_path($file))) {
-                $existingFiles[$file] = "{$description} (existing)";
+                $existingFiles[] = $file;
             }
         }
 
-        // If no existing files, offer to create
+        // If no existing files, ask if they want to add guidelines
         if (empty($existingFiles)) {
-            $createFiles = confirm(
-                label: 'No LLM instruction files found. Would you like to create some with Optimize MCP guidelines?',
+            $shouldAdd = confirm(
+                label: 'Add Optimize MCP guidelines to AI assistant instruction files?',
                 default: true,
-                hint: 'Guidelines help AI assistants understand how to use MCP tools'
+                hint: 'Helps AI assistants understand how to use the MCP tools'
             );
 
-            if (!$createFiles) {
+            if (!$shouldAdd) {
                 return collect();
-            }
-
-            // Offer all possible files for creation
-            $options = array_map(fn($desc) => "{$desc} (create new)", $possibleFiles);
-        } else {
-            // Mix of existing and new files
-            $options = $existingFiles;
-            foreach ($possibleFiles as $file => $description) {
-                if (!isset($existingFiles[$file])) {
-                    $options[$file] = "{$description} (create new)";
-                }
             }
         }
 
         $selected = multiselect(
-            label: 'Which LLM instruction files should include Optimize MCP guidelines?',
-            options: $options,
-            default: array_keys($existingFiles),
-            scroll: count($options),
-            hint: 'Guidelines are safely appended to existing files'
+            label: 'Which AI assistants do you use?',
+            options: $possibleFiles,
+            default: $existingFiles,
+            scroll: 5,
+            hint: 'Guidelines will be added to instruction files (creates new or appends to existing)'
         );
 
         return collect($selected);
