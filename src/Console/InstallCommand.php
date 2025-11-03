@@ -191,13 +191,13 @@ class InstallCommand extends Command
         ];
 
         // Human-readable agent names
-        $agentNames = [
+        $agentNames = collect([
             'claude_code' => 'Claude Code',
             'cursor' => 'Cursor',
             'copilot' => 'GitHub Copilot',
             'aider' => 'Aider',
             'windsurf' => 'Windsurf',
-        ];
+        ]);
 
         // Check which files exist for smart defaults
         $existingAgents = [];
@@ -209,16 +209,16 @@ class InstallCommand extends Command
 
         $projectName = config('app.name', 'Laravel');
 
-        $selected = multiselect(
+        $selected = collect(multiselect(
             label: "Which agents need Optimize MCP guidelines for {$projectName}?",
-            options: $agentNames,
+            options: $agentNames->toArray(),
             default: $existingAgents,
-            scroll: 5,
+            scroll: $agentNames->count(),
             hint: 'You can add or remove them later by running this command again'
-        );
+        ));
 
         // Map selected agents back to file paths
-        return collect($selected)->map(fn($agent) => $agentFiles[$agent]);
+        return $selected->map(fn($agent) => $agentFiles[$agent]);
     }
 
     protected function installGuidelines(): void
