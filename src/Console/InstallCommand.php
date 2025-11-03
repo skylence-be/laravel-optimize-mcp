@@ -39,6 +39,9 @@ class InstallCommand extends Command
     /** @var Collection<int, string> */
     private Collection $selectedFeatures;
 
+    /** @var Collection<int, string> */
+    private Collection $selectedLlmFiles;
+
     private string $projectName;
 
     private bool $configureHttpServer = false;
@@ -79,6 +82,7 @@ class InstallCommand extends Command
         $this->redCross = $this->red('✗');
 
         $this->selectedTargetMcpClient = collect();
+        $this->selectedLlmFiles = collect();
 
         $this->projectName = config('app.name');
     }
@@ -120,6 +124,7 @@ class InstallCommand extends Command
     {
         $this->selectedFeatures = $this->selectFeatures();
         $this->selectedTargetMcpClient = $this->selectTargetMcpClients();
+        $this->selectedLlmFiles = $this->selectLlmGuidelines();
 
         if ($this->selectedTargetMcpClient->isNotEmpty()) {
             $this->configureHttpServer = $this->shouldConfigureHttpServer();
@@ -128,6 +133,12 @@ class InstallCommand extends Command
 
     protected function performInstallation(): void
     {
+        if ($this->selectedLlmFiles->isNotEmpty()) {
+            $this->installGuidelines();
+        }
+
+        usleep(750000);
+
         if ($this->selectedTargetMcpClient->isNotEmpty()) {
             $this->installMcpServerConfig();
         }
@@ -163,6 +174,153 @@ class InstallCommand extends Command
             default: false,
             hint: 'Adds HTTP server config to check remote .env variables and configuration',
         );
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    protected function selectLlmGuidelines(): Collection
+    {
+        $possibleFiles = [
+            'CLAUDE.md' => 'Claude Code / Claude.ai',
+            '.cursorrules' => 'Cursor IDE',
+            '.copilot-instructions.md' => 'GitHub Copilot',
+            '.aider.conf.yml' => 'Aider',
+            '.windsurf/rules.md' => 'Windsurf IDE',
+        ];
+
+        // Check which files exist
+        $existingFiles = [];
+        foreach ($possibleFiles as $file => $description) {
+            if (file_exists(base_path($file))) {
+                $existingFiles[$file] = "{$description} (existing)";
+            }
+        }
+
+        // If no existing files, offer to create
+        if (empty($existingFiles)) {
+            $createFiles = confirm(
+                label: 'No LLM instruction files found. Would you like to create some with Optimize MCP guidelines?',
+                default: true,
+                hint: 'Guidelines help AI assistants understand how to use MCP tools'
+            );
+
+            if (!$createFiles) {
+                return collect();
+            }
+
+            // Offer all possible files for creation
+            $options = array_map(fn($desc) => "{$desc} (create new)", $possibleFiles);
+        } else {
+            // Mix of existing and new files
+            $options = $existingFiles;
+            foreach ($possibleFiles as $file => $description) {
+                if (!isset($existingFiles[$file])) {
+                    $options[$file] = "{$description} (create new)";
+                }
+            }
+        }
+
+        $selected = multiselect(
+            label: 'Which LLM instruction files should include Optimize MCP guidelines?',
+            options: $options,
+            default: array_keys($existingFiles),
+            scroll: count($options),
+            hint: 'Guidelines are safely appended to existing files'
+        );
+
+        return collect($selected);
+    }
+
+    protected function installGuidelines(): void
+    {
+        if ($this->selectedLlmFiles->isEmpty()) {
+            return;
+        }
+
+        $guidelinesFile = __DIR__ . '/../../.ai/optimize-mcp-guidelines.md';
+
+        if (!file_exists($guidelinesFile)) {
+            $this->warn('Guidelines file not found, skipping guideline installation');
+            return;
+        }
+
+        $guidelines = file_get_contents($guidelinesFile);
+        $wrappedGuidelines = <<<GUIDELINES
+
+
+---
+
+<laravel-optimize-mcp-guidelines>
+{$guidelines}
+</laravel-optimize-mcp-guidelines>
+
+GUIDELINES;
+
+        $this->newLine();
+        $this->info(' Adding Optimize MCP guidelines to LLM instruction files');
+        $this->newLine();
+
+        usleep(750000);
+
+        $longestFileName = max(1, ...$this->selectedLlmFiles->map(fn($file) => Str::length($file))->toArray());
+
+        $updated = [];
+        $created = [];
+        $skipped = [];
+
+        foreach ($this->selectedLlmFiles as $file) {
+            $displayName = str_pad($file, $longestFileName);
+            $this->output->write("  {$displayName}... ");
+
+            $filePath = base_path($file);
+
+            try {
+                if (file_exists($filePath)) {
+                    $content = file_get_contents($filePath);
+
+                    if (strpos($content, '<laravel-optimize-mcp-guidelines>') !== false) {
+                        $this->line($this->yellow('⏭'));
+                        $skipped[] = $file;
+                        continue;
+                    }
+
+                    file_put_contents($filePath, $content . $wrappedGuidelines);
+                    $this->line($this->greenTick);
+                    $updated[] = $file;
+                } else {
+                    // Create new file
+                    $dir = dirname($filePath);
+                    if ($dir !== '.' && !is_dir($dir)) {
+                        mkdir($dir, 0755, true);
+                    }
+
+                    $minimalContent = <<<CONTENT
+# Laravel Optimize MCP - Guidelines
+
+This project uses Laravel Optimize MCP for analyzing, inspecting, and optimizing the Laravel application.
+
+{$wrappedGuidelines}
+CONTENT;
+
+                    file_put_contents($filePath, $minimalContent);
+                    $this->line($this->green('✓ created'));
+                    $created[] = $file;
+                }
+            } catch (Exception $e) {
+                $this->line($this->redCross);
+                $this->error("  Error: {$e->getMessage()}");
+            }
+        }
+
+        $this->newLine();
+
+        if (!empty($skipped)) {
+            $this->info(sprintf(' %s Skipped %d file(s) - guidelines already present',
+                $this->yellow('⏭'),
+                count($skipped)
+            ));
+        }
     }
 
     /**
