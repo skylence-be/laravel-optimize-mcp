@@ -12,6 +12,7 @@ use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\AppConfigAnalyzer;
 use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\CacheConfigAnalyzer;
 use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\DatabaseConfigAnalyzer;
 use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\EnvironmentDriversAnalyzer;
+use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\LoggingConfigAnalyzer;
 use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\PerformanceOptimizationsAnalyzer;
 use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\QueueConfigAnalyzer;
 use Skylence\OptimizeMcp\Mcp\Tools\Analyzers\Config\SessionConfigAnalyzer;
@@ -56,6 +57,7 @@ final class ConfigurationAnalyzer extends Tool
             new SessionConfigAnalyzer(),
             new QueueConfigAnalyzer(),
             new DatabaseConfigAnalyzer(),
+            new LoggingConfigAnalyzer(),
             new TelescopeConfigAnalyzer(),
         ];
 
