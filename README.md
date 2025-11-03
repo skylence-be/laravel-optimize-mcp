@@ -131,8 +131,35 @@ php artisan optimize-mcp:prune-database-logs
 - **Configuration Analyzer**: Checks your Laravel config for performance and security
 - **Database Size Inspector**: Monitor database size, growth trends, and disk usage
 - **Database Monitoring & Alerts**: Automatic size tracking with email notifications
+- **Log File Inspector**: Check log sizes and rotation configuration (HTTP MCP only)
+- **Nginx Config Inspector**: Analyze nginx for security and performance (HTTP MCP only)
+- **Nginx Config Generator**: Generate production-ready nginx configs (HTTP MCP only)
 - **Project Structure Analyzer**: Reviews your composer scripts, CI/CD, testing setup, and more
 - **Package Advisor**: Recommends useful packages for your project
+
+## LLM Guidelines for AI Assistants
+
+Want your AI assistant to know how to use these MCP tools? Add the Laravel Optimize MCP guidelines to your project's LLM instruction files:
+
+```bash
+# From the root of your Laravel project
+php vendor/skylence/laravel-optimize-mcp/bin/append-guidelines.php CLAUDE.md
+
+# Or for other LLM instruction files
+php vendor/skylence/laravel-optimize-mcp/bin/append-guidelines.php .cursorrules
+php vendor/skylence/laravel-optimize-mcp/bin/append-guidelines.php .copilot-instructions.md
+```
+
+This appends comprehensive guidelines about:
+- How to use each MCP tool
+- When to use HTTP MCP vs stdio/PHP MCP tools
+- Best practices for security and performance
+- Configuration examples and common solutions
+
+The script will:
+- ✅ Append guidelines to existing files without overwriting
+- ✅ Skip if guidelines are already present
+- ✅ Create the file with guidelines if it doesn't exist
 
 ## Advanced Configuration
 
