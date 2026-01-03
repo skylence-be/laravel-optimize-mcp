@@ -180,6 +180,7 @@ final class PackageAdvisor extends Tool
             // Testing
             'pestphp/pest' => 'Modern testing framework (Pest v4) with elegant syntax and type coverage',
             'pestphp/pest-plugin-laravel' => 'Pest plugin for Laravel testing features',
+            'pestphp/pest-plugin-type-coverage' => 'Type coverage plugin for Pest - required for composer scripts',
             'pestphp/pest-plugin-browser' => 'Browser testing with Pest v4 (if system can handle Chrome)',
 
             // Auth & Security
@@ -287,7 +288,15 @@ final class PackageAdvisor extends Tool
      */
     private function addPackagesToComposer(string $composerPath, array $composerData, array $missing): array
     {
-        $devPackages = ['barryvdh/laravel-ide-helper', 'barryvdh/laravel-debugbar', 'beyondcode/laravel-dump-server'];
+        $devPackages = [
+            'barryvdh/laravel-ide-helper',
+            'barryvdh/laravel-debugbar',
+            'beyondcode/laravel-dump-server',
+            'pestphp/pest',
+            'pestphp/pest-plugin-laravel',
+            'pestphp/pest-plugin-type-coverage',
+            'pestphp/pest-plugin-browser',
+        ];
         $specialVersions = [
             'skylence/laravel-telescope-mcp' => 'dev-main',
         ];
@@ -500,7 +509,15 @@ final class PackageAdvisor extends Tool
             $lines[] = '';
         } elseif (! empty($missing)) {
             $lines[] = '💡 To install missing packages, run:';
-            $devPackages = ['barryvdh/laravel-ide-helper', 'barryvdh/laravel-debugbar', 'beyondcode/laravel-dump-server'];
+            $devPackages = [
+                'barryvdh/laravel-ide-helper',
+                'barryvdh/laravel-debugbar',
+                'beyondcode/laravel-dump-server',
+                'pestphp/pest',
+                'pestphp/pest-plugin-laravel',
+                'pestphp/pest-plugin-type-coverage',
+                'pestphp/pest-plugin-browser',
+            ];
             $prodPackages = array_filter(array_keys($missing), fn ($p) => ! in_array($p, $devPackages));
             $devOnlyPackages = array_filter(array_keys($missing), fn ($p) => in_array($p, $devPackages));
 
